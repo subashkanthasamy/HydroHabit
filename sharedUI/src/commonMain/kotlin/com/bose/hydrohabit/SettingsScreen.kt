@@ -4,11 +4,14 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -19,7 +22,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DividerDefaults
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -35,7 +39,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -45,13 +49,15 @@ import com.bose.hydrohabit.presentation.settings.SettingsState
 import com.bose.hydrohabit.theme.glassCard
 import com.bose.hydrohabit.theme.softCard
 
+private val HEX_REGEX = Regex("^#[0-9A-Fa-f]{6}$")
+
 /**
  * "My Profile" Settings screen — lavender soft-UI restyle.
  *
- * Layout: centered avatar with edit affordance, name + email headline, two summary
- * cards (Daily Water Goal / Reminder Interval), then grouped soft-card list rows for
- * every control.  ALL interactive controls from the original design are preserved
- * and wired to the same callbacks:
+ * Layout: centered avatar, name + email headline, two summary cards (Daily Water Goal /
+ * Reminder Interval), then grouped soft-card list rows for every control.
+ * ALL interactive controls from the original design are preserved and wired to the
+ * same callbacks:
  *
  *  - Profile editor  (weight + age fields → onSaveProfile)
  *  - Reminders toggle switch  → onUpdateReminders(copy(enabled))
@@ -65,6 +71,7 @@ import com.bose.hydrohabit.theme.softCard
  * Editable field state is seeded once (on load) so reactive re-emissions never reset
  * text mid-edit.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SettingsScreen(
     state: SettingsState,
@@ -95,6 +102,15 @@ fun SettingsScreen(
     }
     val reminderIntervalDisplay = "${state.reminderSettings.intervalMinutes} min"
 
+    // Validation helpers
+    val weightVal = weight.toDoubleOrNull()
+    val ageVal = age.toIntOrNull()
+    val weightError = weight.isNotEmpty() && (weightVal == null || weightVal <= 0 || weightVal > 300)
+    val ageError = age.isNotEmpty() && (ageVal == null || ageVal <= 0 || ageVal > 120)
+
+    val intervalVal = interval.toIntOrNull()
+    val intervalError = interval.isNotEmpty() && (intervalVal == null || intervalVal <= 0)
+
     val scheme = MaterialTheme.colorScheme
 
     Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
@@ -112,7 +128,6 @@ fun SettingsScreen(
             Text(
                 text = "My Profile",
                 style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
                 color = scheme.onBackground,
             )
 
@@ -122,35 +137,19 @@ fun SettingsScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                // Avatar circle with first-letter initial (edit affordance)
-                Box(contentAlignment = Alignment.BottomEnd) {
-                    Box(
-                        modifier = Modifier
-                            .size(88.dp)
-                            .clip(CircleShape)
-                            .background(scheme.primaryContainer),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            text = "💧",
-                            style = MaterialTheme.typography.headlineLarge,
-                            color = scheme.onPrimaryContainer,
-                        )
-                    }
-                    // Edit affordance badge
-                    Box(
-                        modifier = Modifier
-                            .size(26.dp)
-                            .clip(CircleShape)
-                            .background(scheme.primary),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            text = "✏",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = scheme.onPrimary,
-                        )
-                    }
+                // Avatar circle with first-letter initial — pencil badge removed (C3: false affordance)
+                Box(
+                    modifier = Modifier
+                        .size(88.dp)
+                        .clip(CircleShape)
+                        .background(scheme.primaryContainer),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = "💧",
+                        style = MaterialTheme.typography.headlineLarge,
+                        color = scheme.onPrimaryContainer,
+                    )
                 }
 
                 // Weight + age summary line beneath avatar
@@ -194,6 +193,12 @@ fun SettingsScreen(
                     onValueChange = { weight = it.filter(Char::isDigit) },
                     label = { Text("Weight (kg)") },
                     singleLine = true,
+                    isError = weightError,
+                    supportingText = if (weightError) {
+                        { Text("Enter a weight between 1 and 300 kg") }
+                    } else {
+                        { Text("Used to calculate your daily goal") }
+                    },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -202,6 +207,12 @@ fun SettingsScreen(
                     onValueChange = { age = it.filter(Char::isDigit) },
                     label = { Text("Age") },
                     singleLine = true,
+                    isError = ageError,
+                    supportingText = if (ageError) {
+                        { Text("Enter an age between 1 and 120") }
+                    } else {
+                        { Text("Used to adjust hydration recommendation") }
+                    },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -211,6 +222,7 @@ fun SettingsScreen(
                         val a = age.toIntOrNull()
                         if (w != null && a != null) onSaveProfile(w, a)
                     },
+                    enabled = !weightError && !ageError && weight.isNotEmpty() && age.isNotEmpty(),
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
                 ) { Text("Save profile & recalculate goal") }
@@ -223,18 +235,27 @@ fun SettingsScreen(
                     checked = state.reminderSettings.enabled,
                     onCheckedChange = { onUpdateReminders(state.reminderSettings.copy(enabled = it)) },
                 )
-                HorizontalDivider(color = scheme.outlineVariant.copy(alpha = 0.5f))
+                // C12: use full outlineVariant, no alpha reduction
+                HorizontalDivider(color = DividerDefaults.color)
                 OutlinedTextField(
                     value = interval,
                     onValueChange = { interval = it.filter(Char::isDigit) },
                     label = { Text("Interval (minutes)") },
                     singleLine = true,
+                    isError = intervalError,
+                    supportingText = if (intervalError) {
+                        { Text("Interval must be greater than 0") }
+                    } else {
+                        { Text("How often to remind you to drink water") }
+                    },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth(),
                 )
-                Row(
+                // C1: FlowRow so strategy chips wrap on narrow screens
+                FlowRow(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     ReminderStrategy.entries.forEach { strategy ->
                         FilterChip(
@@ -244,11 +265,13 @@ fun SettingsScreen(
                         )
                     }
                 }
-                Button(
+                // C6: secondary sub-action → FilledTonalButton
+                FilledTonalButton(
                     onClick = {
                         interval.toIntOrNull()?.takeIf { it > 0 }
                             ?.let { onUpdateReminders(state.reminderSettings.copy(intervalMinutes = it)) }
                     },
+                    enabled = !intervalError && interval.isNotEmpty(),
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
                 ) { Text("Apply interval") }
@@ -261,12 +284,13 @@ fun SettingsScreen(
                 Text(
                     "Theme",
                     style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.SemiBold,
                     color = scheme.onSurface,
                 )
-                Row(
+                // C1: FlowRow for theme chips
+                FlowRow(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     listOf("SYSTEM", "LIGHT", "DARK").forEach { mode ->
                         FilterChip(
@@ -277,13 +301,13 @@ fun SettingsScreen(
                     }
                 }
 
-                HorizontalDivider(color = scheme.outlineVariant.copy(alpha = 0.5f))
+                // C12: use full outlineVariant, no alpha reduction
+                HorizontalDivider(color = DividerDefaults.color)
 
                 // 2. Accent color picker
                 Text(
                     "Accent Color",
                     style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.SemiBold,
                     color = scheme.onSurface,
                 )
                 val presets = listOf(
@@ -293,9 +317,11 @@ fun SettingsScreen(
                     "Emerald Green" to "#1B5E20",
                     "Purple Rain" to "#6A1B9A",
                 )
-                Row(
+                // C1: FlowRow so all 5 preset chips wrap rather than overflow
+                FlowRow(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     presets.forEach { (name, hex) ->
                         FilterChip(
@@ -305,19 +331,34 @@ fun SettingsScreen(
                         )
                     }
                 }
-                var customColorInput by rememberSaveable(state.reminderSettings.accentColor) {
-                    mutableStateOf(state.reminderSettings.accentColor)
-                }
+
+                // C4/C5/C8: hex validation, keyboard options, char filtering, state-race fix
+                // customColorInput is NOT keyed on accentColor to avoid preset→field race.
+                // We only emit onUpdateReminders when the value passes the regex.
+                var customColorInput by rememberSaveable { mutableStateOf(state.reminderSettings.accentColor) }
+                val hexError = customColorInput.isNotEmpty() && !HEX_REGEX.matches(customColorInput)
                 OutlinedTextField(
                     value = customColorInput,
-                    onValueChange = {
-                        customColorInput = it
-                        if (it.length == 7 && it.startsWith("#")) {
-                            onUpdateReminders(state.reminderSettings.copy(accentColor = it))
+                    onValueChange = { raw ->
+                        // Allow only '#' and hex digit characters, max 7 chars
+                        val filtered = raw.filter { it == '#' || it in '0'..'9' || it in 'a'..'f' || it in 'A'..'F' }
+                            .take(7)
+                        customColorInput = filtered
+                        // Only emit a valid hex color
+                        if (HEX_REGEX.matches(filtered)) {
+                            onUpdateReminders(state.reminderSettings.copy(accentColor = filtered))
                         }
                     },
                     label = { Text("Custom Color Hex (e.g. #006690)") },
                     singleLine = true,
+                    isError = hexError,
+                    supportingText = if (hexError) {
+                        { Text("Must be a valid hex: #RRGGBB (6 hex digits)") }
+                    } else null,
+                    keyboardOptions = KeyboardOptions(
+                        autoCorrectEnabled = false,
+                        capitalization = KeyboardCapitalization.Characters,
+                    ),
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
@@ -327,6 +368,7 @@ fun SettingsScreen(
                 val sounds = listOf("default", "chime", "glass", "droplet", "ping")
                 sounds.forEach { sound ->
                     val isSelected = state.reminderSettings.notificationSound.lowercase() == sound
+                    // C9: weight(1f, fill=false) on the chip so it doesn't collide with Preview button
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -336,15 +378,15 @@ fun SettingsScreen(
                             selected = isSelected,
                             onClick = { onUpdateReminders(state.reminderSettings.copy(notificationSound = sound)) },
                             label = { Text(sound.replaceFirstChar { it.uppercase() }) },
+                            modifier = Modifier.weight(1f, fill = false),
                         )
-                        Button(
+                        // C2/C11: FilledTonalButton (maps to secondaryContainer natively) with 48dp min height
+                        FilledTonalButton(
                             onClick = { soundPlayer.playSoundPreview(sound) },
-                            modifier = Modifier.padding(start = 8.dp),
+                            modifier = Modifier
+                                .padding(start = 8.dp)
+                                .heightIn(min = 48.dp),
                             shape = RoundedCornerShape(16.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = scheme.secondaryContainer,
-                                contentColor = scheme.onSecondaryContainer,
-                            ),
                         ) {
                             Text("▶ Preview")
                         }
@@ -379,7 +421,6 @@ private fun SettingsSectionCard(
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface,
             )
             content()
@@ -431,7 +472,6 @@ private fun SummaryStatCard(
             Text(
                 text = value,
                 style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.ExtraBold,
                 color = MaterialTheme.colorScheme.primary,
                 textAlign = TextAlign.Center,
             )
