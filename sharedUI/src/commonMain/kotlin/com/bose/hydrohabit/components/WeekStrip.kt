@@ -15,7 +15,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlinx.datetime.DateTimeUnit
@@ -62,7 +61,7 @@ fun WeekStrip(
                         .size(34.dp)
                         .clip(CircleShape)
                         .background(
-                            if (selected) scheme.primary else Color.White.copy(alpha = 0.55f)
+                            if (selected) scheme.primary else scheme.surface.copy(alpha = 0.6f)
                         ),
                     contentAlignment = Alignment.Center,
                 ) {
