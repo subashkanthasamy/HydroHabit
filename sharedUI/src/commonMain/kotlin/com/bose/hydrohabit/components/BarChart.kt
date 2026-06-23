@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -17,6 +16,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
@@ -41,8 +42,12 @@ data class BarDatum(val label: String, val fraction: Float, val highlighted: Boo
 @Composable
 fun BarChart(bars: List<BarDatum>, modifier: Modifier = Modifier, height: Dp = 108.dp) {
     val scheme = MaterialTheme.colorScheme
+    val a11yDesc = bars.joinToString { "${it.label}: ${(it.fraction * 100).toInt()} percent" }
     Row(
-        modifier = modifier.fillMaxWidth().height(height),
+        modifier = modifier
+            .fillMaxWidth()
+            .height(height)
+            .semantics(mergeDescendants = true) { contentDescription = a11yDesc },
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.Bottom
     ) {
@@ -50,7 +55,7 @@ fun BarChart(bars: List<BarDatum>, modifier: Modifier = Modifier, height: Dp = 1
             Column(
                 modifier = Modifier.weight(1f).fillMaxHeight(),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Bottom
+                verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.Bottom)
             ) {
                 val frac = b.fraction.coerceIn(0f, 1f).coerceAtLeast(0.04f)
                 Box(
@@ -61,11 +66,10 @@ fun BarChart(bars: List<BarDatum>, modifier: Modifier = Modifier, height: Dp = 1
                         .background(
                             Brush.verticalGradient(
                                 if (b.highlighted) listOf(scheme.secondary, scheme.primary)
-                                else listOf(scheme.surfaceVariant, scheme.surfaceVariant.copy(alpha = 0.7f))
+                                else listOf(scheme.surfaceVariant, scheme.secondaryContainer)
                             )
                         )
                 )
-                Spacer(Modifier.height(8.dp))
                 Text(b.label, style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant)
             }
         }
