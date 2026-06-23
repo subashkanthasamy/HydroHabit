@@ -1,6 +1,7 @@
 package com.bose.hydrohabit
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,16 +12,19 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.bose.hydrohabit.components.BarChart
 import com.bose.hydrohabit.components.BarDatum
@@ -34,6 +38,9 @@ import com.bose.hydrohabit.theme.glassCard
 // ReportPeriod enum order: DAILY(0), WEEKLY(1), MONTHLY(2)
 private val PERIOD_LABELS = listOf("Day", "Week", "Month")
 private val PERIOD_VALUES = listOf(ReportPeriod.DAILY, ReportPeriod.WEEKLY, ReportPeriod.MONTHLY)
+
+// Minimum bar width for the scrollable monthly chart so bars remain legible
+private val MIN_BAR_WIDTH = 24.dp
 
 @Composable
 fun AnalyticsScreen(
@@ -51,7 +58,6 @@ fun AnalyticsScreen(
         Text(
             "Insights",
             style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
         )
 
         // Period selector — SegmentedControl maps index → ReportPeriod enum value
@@ -62,26 +68,48 @@ fun AnalyticsScreen(
         )
 
         val report = state.report
-        if (report == null || report.dailyBreakdown.isEmpty()) {
-            EmptyState()
-        } else {
-            SummaryCard(report)
-            WeeklyCompletionCard(report)
-            BreakdownChartCard(report)
-            report.insights.forEach { insight ->
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .glassCard(shape = RoundedCornerShape(16.dp))
-                ) {
-                    Text(
-                        insight.message,
-                        Modifier.padding(16.dp),
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
+        when {
+            // A3: distinct loading branch — fires while isLoading=true (report may still be null)
+            state.isLoading -> {
+                LoadingState()
+            }
+            report == null || report.dailyBreakdown.isEmpty() -> {
+                EmptyState()
+            }
+            else -> {
+                SummaryCard(report)
+                WeeklyCompletionCard(report)
+                BreakdownChartCard(report, state.period)
+                report.insights.forEach { insight ->
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .glassCard(shape = RoundedCornerShape(16.dp))
+                    ) {
+                        Text(
+                            insight.message,
+                            Modifier.padding(16.dp),
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun LoadingState() {
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .glassCard(shape = RoundedCornerShape(16.dp))
+            .padding(32.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        CircularProgressIndicator(
+            modifier = Modifier.semantics { contentDescription = "Loading" },
+        )
     }
 }
 
@@ -113,10 +141,10 @@ private fun SummaryCard(report: AnalyticsReport) {
             .glassCard(shape = RoundedCornerShape(20.dp))
     ) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            // A4: drop redundant fontWeight on titleMedium
             Text(
                 "Summary",
                 style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
             )
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -152,16 +180,17 @@ private fun StatTile(label: String, value: String, modifier: Modifier = Modifier
             .padding(horizontal = 14.dp, vertical = 12.dp),
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            // A5: use onSecondaryContainer on secondaryContainer background
+            // A4: drop redundant fontWeight on titleMedium
             Text(
                 value,
                 style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = scheme.onSurface,
+                color = scheme.onSecondaryContainer,
             )
             Text(
                 label,
                 style = MaterialTheme.typography.labelSmall,
-                color = scheme.onSurfaceVariant,
+                color = scheme.onSecondaryContainer,
             )
         }
     }
@@ -179,10 +208,10 @@ private fun DayTile(label: String, day: DaySummary) {
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Text(label, style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+        // A4: drop redundant fontWeight on bodySmall (DayTile uses surfaceVariant+onSurface* — correct pairing, leave)
         Text(
             "${day.date}  ·  ${day.consumedMl} ml",
             style = MaterialTheme.typography.bodySmall,
-            fontWeight = FontWeight.SemiBold,
             color = scheme.onSurface,
         )
     }
@@ -201,19 +230,23 @@ private fun WeeklyCompletionCard(report: AnalyticsReport) {
             .glassCard(shape = RoundedCornerShape(20.dp))
     ) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            // A4: drop redundant fontWeight on titleMedium
             Text(
                 "Daily Completion",
                 style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
             )
             report.dailyBreakdown.forEach { day ->
                 val met = day.metGoal()
+                // A2: row-level merged contentDescription so screen readers convey goal state
+                val rowDesc = "${day.date}, ${day.consumedMl} ml, ${if (met) "goal met" else "goal not met"}"
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .semantics(mergeDescendants = true) { contentDescription = rowDesc },
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    // Check circle
+                    // Check circle — visual only; semantics on the Row covers the state
                     Box(
                         modifier = Modifier
                             .size(24.dp)
@@ -228,7 +261,6 @@ private fun WeeklyCompletionCard(report: AnalyticsReport) {
                                 "✓",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = scheme.onPrimary,
-                                fontWeight = FontWeight.Bold,
                             )
                         }
                     }
@@ -241,7 +273,6 @@ private fun WeeklyCompletionCard(report: AnalyticsReport) {
                     Text(
                         "${day.consumedMl} ml",
                         style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.SemiBold,
                         color = if (met) scheme.primary else scheme.onSurfaceVariant,
                     )
                 }
@@ -255,7 +286,7 @@ private fun WeeklyCompletionCard(report: AnalyticsReport) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
-private fun BreakdownChartCard(report: AnalyticsReport) {
+private fun BreakdownChartCard(report: AnalyticsReport, period: ReportPeriod) {
     // Build BarDatum list from the real dailyBreakdown.
     // fraction = consumedMl / goalMl if goalMl > 0, else consumedMl / max consumed in period.
     // Highlighted = day that met the goal.
@@ -281,10 +312,10 @@ private fun BreakdownChartCard(report: AnalyticsReport) {
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
+                // A4: drop redundant fontWeight on titleMedium
                 Text(
                     "Daily Breakdown",
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
                 )
                 val scheme = MaterialTheme.colorScheme
                 Box(
@@ -295,14 +326,36 @@ private fun BreakdownChartCard(report: AnalyticsReport) {
                         )
                         .padding(horizontal = 10.dp, vertical = 4.dp),
                 ) {
+                    // A5: use onSecondaryContainer on secondaryContainer background
                     Text(
                         "${report.range.start} – ${report.range.end}",
                         style = MaterialTheme.typography.labelSmall,
-                        color = scheme.onSurface,
+                        color = scheme.onSecondaryContainer,
                     )
                 }
             }
-            BarChart(bars = bars, height = 120.dp)
+
+            // A6: for long periods (MONTHLY ~30 bars) wrap in a horizontally scrollable row
+            // so each bar has a sensible minimum width and labels don't collide.
+            // Short periods (DAILY/WEEKLY ≤ 7 bars) fit within the card width — no scroll needed.
+            val barCount = bars.size
+            val useScroll = period == ReportPeriod.MONTHLY || barCount > 10
+            if (useScroll) {
+                val minChartWidth = (MIN_BAR_WIDTH + 8.dp) * barCount
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                ) {
+                    BarChart(
+                        bars = bars,
+                        height = 120.dp,
+                        modifier = Modifier.widthIn(min = minChartWidth),
+                    )
+                }
+            } else {
+                BarChart(bars = bars, height = 120.dp)
+            }
         }
     }
 }
