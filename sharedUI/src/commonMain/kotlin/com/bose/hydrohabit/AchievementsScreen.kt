@@ -2,7 +2,7 @@ package com.bose.hydrohabit
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,11 +22,11 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.hideFromAccessibility
@@ -44,16 +44,16 @@ fun AchievementsScreen(
     modifier: Modifier = Modifier,
     onBack: () -> Unit = {},
 ) {
-    // B4: The root Column has an opaque background which acts as the overlay backdrop
-    // (prevents taps passing through to content behind this screen).
-    // The old no-op clickable(indication=null){} on top of that was redundant as a
-    // tap-absorber — the background + Column already block pointer events — and it
-    // swallowed taps with no purpose. Removed per B4; overlay backdrop preserved via
-    // the opaque background below.
+    // B4: The root Column has an opaque background to visually cover content behind this
+    // overlay screen. NOTE: background() only draws — it does NOT consume pointer input,
+    // so taps on empty areas would fall through to the tab content behind this overlay.
+    // The pointerInput absorber below catches all taps and consumes them without adding
+    // a clickable/button role to the accessibility tree (unlike clickable{}).
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background),
+            .background(MaterialTheme.colorScheme.background)
+            .pointerInput(Unit) { detectTapGestures { } },
     ) {
         // Top bar: soft-circle back button + title
         AchievementsTopBar(onBack = onBack, unlockedCount = state.unlockedCount, total = state.achievements.size)
