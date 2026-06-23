@@ -61,7 +61,7 @@ fun WaterRing(
     val waveColorBack = MaterialTheme.colorScheme.secondary
     val waveColorFront = MaterialTheme.colorScheme.primary
 
-    // Infinite phase animation for wave — only materialised when waveFill is requested.
+    // Infinite phase animation for wave.
     val infiniteTransition = rememberInfiniteTransition(label = "wave")
     val phase by infiniteTransition.animateFloat(
         initialValue = 0f,
@@ -171,12 +171,11 @@ private fun DrawScope.drawWave(
     amp: Float,
     width: Float,
     bottomY: Float,
-    shift: Float = 0f,
 ) {
     val segmentCount = 4 // number of full wave periods across the width
     val segmentWidth = width / segmentCount
     // Phase offset in pixels: full width shift over one cycle.
-    val phaseOffset = (phase + shift) * width
+    val phaseOffset = phase * width
 
     val path = Path().apply {
         moveTo(-phaseOffset % segmentWidth, levelY)

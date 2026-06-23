@@ -303,7 +303,6 @@ private fun BreakdownChartCard(report: AnalyticsReport) {
                 }
             }
             BarChart(bars = bars, height = 120.dp)
-            Spacer(Modifier.height(0.dp))
         }
     }
 }

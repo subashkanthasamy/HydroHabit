@@ -131,13 +131,8 @@ fun SettingsScreen(
                             .background(scheme.primaryContainer),
                         contentAlignment = Alignment.Center,
                     ) {
-                        val initial = state.profile?.let {
-                            // derive initial from age/weight as a stand-in since UserProfile
-                            // has no name field — show a droplet glyph instead
-                            null
-                        }
                         Text(
-                            text = initial ?: "💧",
+                            text = "💧",
                             style = MaterialTheme.typography.headlineLarge,
                             color = scheme.onPrimaryContainer,
                         )
