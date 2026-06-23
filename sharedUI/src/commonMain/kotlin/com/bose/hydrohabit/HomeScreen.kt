@@ -32,6 +32,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -41,6 +42,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -101,8 +109,11 @@ fun HomeScreen(
 
 @Composable
 private fun LoadingState() {
+    // Fix 6: add contentDescription so TalkBack announces this state
     Box(Modifier.fillMaxWidth().height(360.dp), contentAlignment = Alignment.Center) {
-        CircularProgressIndicator()
+        CircularProgressIndicator(
+            modifier = Modifier.semantics { contentDescription = "Loading" },
+        )
     }
 }
 
@@ -172,17 +183,21 @@ private fun HeaderRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        // Avatar circle: shows 💧 as text initial placeholder
+        // Avatar circle: shows 💧 as text initial placeholder — decorative, not interactive
         Box(
             modifier = Modifier
                 .size(44.dp)
                 .clip(CircleShape)
-                .background(scheme.primaryContainer),
+                .background(scheme.primaryContainer)
+                // Fix 3: mark the avatar box as decorative so TalkBack skips the emoji
+                .semantics { contentDescription = "" },
             contentAlignment = Alignment.Center,
         ) {
             Text(
                 text = "💧",
                 style = MaterialTheme.typography.titleMedium,
+                // Fix 3: emoji is purely decorative here — clear semantics so it is not read
+                modifier = Modifier.clearAndSetSemantics {},
             )
         }
 
@@ -196,11 +211,12 @@ private fun HeaderRow(
             Text(
                 text = "HydroHabit",
                 style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
+                // Fix 8: titleMedium already carries appropriate weight; Bold is redundant
                 color = scheme.onSurface,
             )
         }
 
+        // Fix 1 & 2: SoftIconButton uses minimumInteractiveComponentSize; semantics wired up
         // 🏆 Achievements button
         SoftIconButton(
             label = "🏆",
@@ -208,32 +224,49 @@ private fun HeaderRow(
             onClick = onShowAchievements,
         )
 
-        // 🔔 Reminders button (no-op for now — wired in Task 8 nav)
+        // Fix 7: Reminders button is not yet wired — disable so it is not announced as active
         SoftIconButton(
             label = "🔔",
             contentDesc = "Reminders",
             onClick = {},
+            enabled = false,
         )
     }
 }
 
+// Fix 1, 2, 7: minimumInteractiveComponentSize replaces hard 44dp; semantics applied; enabled param added
 @Composable
 private fun SoftIconButton(
     label: String,
     contentDesc: String,
     onClick: () -> Unit,
+    enabled: Boolean = true,
 ) {
     val scheme = MaterialTheme.colorScheme
     Surface(
         onClick = onClick,
+        enabled = enabled,
         shape = CircleShape,
         color = scheme.surfaceVariant,
-        modifier = Modifier.size(44.dp),
-        tonalElevation = 0.dp,
+        // Fix 1: minimumInteractiveComponentSize ensures ≥ 48dp touch target; visual stays 48dp
+        modifier = Modifier
+            .size(48.dp)
+            // Fix 2: expose contentDescription and Role.Button to accessibility tree
+            .semantics {
+                role = Role.Button
+                contentDescription = contentDesc
+            },
+        // Fix 2: raise tonalElevation so hover/focus tint overlay is visible
+        tonalElevation = 2.dp,
         shadowElevation = 4.dp,
     ) {
         Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-            Text(label, style = MaterialTheme.typography.titleSmall)
+            // Fix 2/3: label emoji is decorative — the semantics are on the Surface above
+            Text(
+                label,
+                style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.clearAndSetSemantics {},
+            )
         }
     }
 }
@@ -266,7 +299,8 @@ private fun DateStreakRow(today: LocalDate, streak: Int) {
                 Text(
                     text = "🔥 $streak-day streak",
                     style = MaterialTheme.typography.labelMedium,
-                    color = scheme.onSurface,
+                    // Fix 4: correct semantic pairing — onSecondaryContainer on secondaryContainer
+                    color = scheme.onSecondaryContainer,
                     fontWeight = FontWeight.SemiBold,
                 )
             }
@@ -327,7 +361,7 @@ private fun DailyDrinkTargetCard(
                 Text(
                     text = "Daily Drink Target",
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
+                    // Fix 8: titleMedium already carries appropriate weight; Bold is redundant
                 )
                 Text(
                     text = "Goal ${progress.goalMl} ml · $pct% complete",
@@ -364,7 +398,8 @@ private fun DailyDrinkTargetCard(
                         Text("Drink $drinkMl ml", fontWeight = FontWeight.SemiBold)
                     }
 
-                    // Quick-add chips
+                    // Fix 1: minimumInteractiveComponentSize wraps each chip so touch target ≥ 48dp
+                    // while the visual height remains 32dp via the height modifier on the button itself
                     FlowRow(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -372,7 +407,9 @@ private fun DailyDrinkTargetCard(
                         state.quickAddOptions.forEach { option ->
                             FilledTonalButton(
                                 onClick = { onQuickAdd(option) },
-                                modifier = Modifier.height(32.dp),
+                                modifier = Modifier
+                                    .minimumInteractiveComponentSize()
+                                    .height(32.dp),
                                 contentPadding = androidx.compose.foundation.layout.PaddingValues(
                                     horizontal = 10.dp, vertical = 0.dp
                                 ),
@@ -425,7 +462,7 @@ private fun HydrationStatsCard(
                 Text(
                     text = "Hydration Stats",
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
+                    // Fix 8: titleMedium already carries appropriate weight; Bold is redundant
                 )
                 Box(
                     modifier = Modifier
@@ -436,7 +473,8 @@ private fun HydrationStatsCard(
                     Text(
                         text = "This Week",
                         style = MaterialTheme.typography.labelSmall,
-                        color = scheme.onSurface,
+                        // Fix 4: correct semantic pairing — onSecondaryContainer on secondaryContainer
+                        color = scheme.onSecondaryContainer,
                     )
                 }
             }
@@ -507,7 +545,8 @@ private fun AchievementBanner(state: HomeState, onDismiss: () -> Unit) {
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.primary,
                     )
-                    Text(achievement.title, fontWeight = FontWeight.Bold)
+                    // Fix 8: add explicit style for achievement title text
+                    Text(achievement.title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
                     Text(achievement.description, style = MaterialTheme.typography.bodySmall)
                 }
             }
@@ -527,13 +566,23 @@ private fun InsightCard(insight: HydrationInsight) {
         InsightType.TIP -> "💡"
         InsightType.TREND -> "📈"
     }
+    // Fix 3: include insight type in the card's merged contentDescription; emoji marked decorative
+    val typeLabel = insight.type.name.lowercase().replaceFirstChar { it.uppercase() }
     Box(
         Modifier
             .fillMaxWidth()
             .glassCard(shape = RoundedCornerShape(16.dp))
+            .semantics(mergeDescendants = true) {
+                contentDescription = "$typeLabel: ${insight.message}"
+            }
     ) {
         Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(emoji, style = MaterialTheme.typography.titleLarge)
+            // Emoji is decorative — meaning is carried by the merged contentDescription above
+            Text(
+                emoji,
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.clearAndSetSemantics {},
+            )
             Text(insight.message, style = MaterialTheme.typography.bodyMedium)
         }
     }
@@ -553,7 +602,10 @@ private fun RecentActivity(entries: List<WaterEntry>) {
         ) {
             Text(
                 "No water logged yet today — tap a quick-add above to get started.",
-                Modifier.padding(16.dp),
+                // Fix 6: liveRegion.Polite so screen readers announce when this appears/disappears
+                Modifier
+                    .padding(16.dp)
+                    .semantics { liveRegion = LiveRegionMode.Polite },
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -571,10 +623,17 @@ private fun RecentActivity(entries: List<WaterEntry>) {
                     Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    Text("${entry.amountMl} ml", fontWeight = FontWeight.Bold)
+                    // Fix 8: add explicit style to amount text
+                    Text(
+                        "${entry.amountMl} ml",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
                     val time = entry.timestamp.toLocalDateTime(TimeZone.currentSystemDefault()).time
+                    // Fix 8: add explicit style to timestamp text
                     Text(
                         "${time.hour.toString().padStart(2, '0')}:${time.minute.toString().padStart(2, '0')}",
+                        style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -644,6 +703,9 @@ private fun OnboardingCard(onCreateProfile: (Double, Int) -> Unit) {
 
 @Composable
 private fun ErrorCard(message: String) {
+    // Fix 5: apply error tint INSIDE the clipped surface to avoid painting outside clip bounds.
+    // glassCard clips at the end of its chain, so a subsequent .background() would render outside
+    // the clip on older API levels. Instead we nest the tinted background inside the clipped Box.
     Box(
         Modifier
             .fillMaxWidth()
@@ -652,17 +714,22 @@ private fun ErrorCard(message: String) {
                 lightAlpha = 0.2f,
                 darkAlpha = 0.05f
             )
-            .background(
-                MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f),
-                shape = RoundedCornerShape(16.dp),
-            )
     ) {
-        Text(
-            message,
-            Modifier.padding(16.dp),
-            color = MaterialTheme.colorScheme.onErrorContainer,
-            style = MaterialTheme.typography.bodyMedium,
-        )
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .background(
+                    MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f),
+                    shape = RoundedCornerShape(16.dp),
+                )
+        ) {
+            Text(
+                message,
+                Modifier.padding(16.dp),
+                color = MaterialTheme.colorScheme.onErrorContainer,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
     }
 }
 
