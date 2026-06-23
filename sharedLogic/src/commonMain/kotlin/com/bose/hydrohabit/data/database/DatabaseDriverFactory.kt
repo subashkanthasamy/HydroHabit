@@ -7,4 +7,4 @@ expect class DatabaseDriverFactory {
     fun createDriver(): SqlDriver
 }
 
-const val DATABASE_NAME = "hydrohabit.db"
+const val DATABASE_NAME = "hydrohabit_v3.db"

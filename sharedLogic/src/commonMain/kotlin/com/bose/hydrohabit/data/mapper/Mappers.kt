@@ -99,6 +99,9 @@ fun ReminderSettingsEntity.toDomain() = ReminderSettings(
     skipIfRecentlyLoggedMinutes = skipIfRecentlyLoggedMinutes.toInt(),
     soundEnabled = soundEnabled != 0L,
     vibrationEnabled = vibrationEnabled != 0L,
+    notificationSound = notificationSound,
+    themeMode = themeMode,
+    accentColor = accentColor,
 )
 
 @Serializable

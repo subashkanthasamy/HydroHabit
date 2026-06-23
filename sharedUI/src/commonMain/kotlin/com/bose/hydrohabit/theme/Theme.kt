@@ -12,7 +12,7 @@ import androidx.compose.runtime.Composable
  * use the brand palette.
  */
 @Composable
-expect fun hydroColorScheme(darkTheme: Boolean, dynamicColor: Boolean): ColorScheme
+expect fun hydroColorScheme(darkTheme: Boolean, dynamicColor: Boolean, accentColor: String?): ColorScheme
 
 val HydroTypography = Typography()
 
@@ -21,10 +21,11 @@ val HydroTypography = Typography()
 fun HydroTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     dynamicColor: Boolean = true,
+    accentColor: String? = null,
     content: @Composable () -> Unit,
 ) {
     MaterialTheme(
-        colorScheme = hydroColorScheme(darkTheme, dynamicColor),
+        colorScheme = hydroColorScheme(darkTheme, dynamicColor, accentColor),
         typography = HydroTypography,
         content = content,
     )

@@ -40,6 +40,9 @@ class ReminderSettingsRepositoryImpl(
             skipIfRecentlyLoggedMinutes = settings.skipIfRecentlyLoggedMinutes.toLong(),
             soundEnabled = if (settings.soundEnabled) 1L else 0L,
             vibrationEnabled = if (settings.vibrationEnabled) 1L else 0L,
+            notificationSound = settings.notificationSound,
+            themeMode = settings.themeMode,
+            accentColor = settings.accentColor,
         )
     }
 }

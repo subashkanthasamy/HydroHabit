@@ -26,6 +26,7 @@ val iosPlatformModule: Module = module {
     single { DatabaseDriverFactory() }
     single<PlatformReminderScheduler> { IosReminderScheduler() }
     single<NotificationPermissionController> { IosNotificationPermissionController() }
+    single<com.bose.hydrohabit.util.SoundPlayer> { com.bose.hydrohabit.util.IosSoundPlayer() }
 }
 
 /** Call once from the iOS app startup (e.g. in iOSApp.init). Named `do…` to avoid Swift's `init`. */
@@ -44,6 +45,7 @@ class KoinHelper : KoinComponent {
     private val analyticsStoreFactory: AnalyticsStoreFactory by inject()
     private val achievementsStoreFactory: AchievementsStoreFactory by inject()
     private val settingsStoreFactory: SettingsStoreFactory by inject()
+    private val soundPlayer: com.bose.hydrohabit.util.SoundPlayer by inject()
 
     /** Build fully-wired, scope-managed store facades for each SwiftUI tab. */
     fun createHomeStore(): HomeStoreNative = HomeStoreNative(homeStoreFactory, createInitialProfile)
@@ -51,4 +53,5 @@ class KoinHelper : KoinComponent {
     fun createAnalyticsStore(): AnalyticsStoreNative = AnalyticsStoreNative(analyticsStoreFactory)
     fun createAchievementsStore(): AchievementsStoreNative = AchievementsStoreNative(achievementsStoreFactory)
     fun createSettingsStore(): SettingsStoreNative = SettingsStoreNative(settingsStoreFactory)
+    fun playSoundPreview(soundName: String) { soundPlayer.playSoundPreview(soundName) }
 }

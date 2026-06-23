@@ -53,6 +53,7 @@ fun MainScreen(
     analyticsStore: AnalyticsStore,
     achievementsStore: AchievementsStore,
     settingsStore: SettingsStore,
+    soundPlayer: com.bose.hydrohabit.util.SoundPlayer,
     onCreateProfile: (Double, Int) -> Unit,
 ) {
     var tab by rememberSaveable { mutableStateOf(Tab.HOME) }
@@ -140,6 +141,7 @@ fun MainScreen(
                     val state by settingsStore.state.collectAsState()
                     SettingsScreen(
                         state = state,
+                        soundPlayer = soundPlayer,
                         onSaveProfile = { weightKg, age ->
                             val profile = state.profile
                             settingsStore.dispatch(

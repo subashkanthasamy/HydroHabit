@@ -36,6 +36,8 @@ class MainActivity : ComponentActivity() {
         val achievementsStore = get<AchievementsStoreFactory>().create(lifecycleScope)
         val settingsStore = get<SettingsStoreFactory>().create(lifecycleScope)
 
+        val soundPlayer: com.bose.hydrohabit.util.SoundPlayer = get()
+
         setContent {
             App(
                 homeStore = homeStore,
@@ -43,6 +45,7 @@ class MainActivity : ComponentActivity() {
                 analyticsStore = analyticsStore,
                 achievementsStore = achievementsStore,
                 settingsStore = settingsStore,
+                soundPlayer = soundPlayer,
                 onCreateProfile = { weightKg, age ->
                     // HomeStore reschedules reminders automatically once the goal appears.
                     lifecycleScope.launch { createProfile(weightKg, age) }

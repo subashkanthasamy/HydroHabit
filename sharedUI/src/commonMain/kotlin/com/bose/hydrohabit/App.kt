@@ -11,6 +11,10 @@ import com.bose.hydrohabit.presentation.home.HomeStore
 import com.bose.hydrohabit.presentation.settings.SettingsStore
 import com.bose.hydrohabit.theme.HydroTheme
 
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.foundation.isSystemInDarkTheme
+
 /**
  * App entry composable. The host (`MainActivity`) creates each store with a lifecycle scope and
  * supplies [onCreateProfile], wired to the use-case layer.
@@ -22,15 +26,25 @@ fun App(
     analyticsStore: AnalyticsStore,
     achievementsStore: AchievementsStore,
     settingsStore: SettingsStore,
+    soundPlayer: com.bose.hydrohabit.util.SoundPlayer,
     onCreateProfile: (Double, Int) -> Unit,
 ) {
-    HydroTheme {
+    val settingsState by settingsStore.state.collectAsState()
+    val settings = settingsState.reminderSettings
+    val darkTheme = when (settings.themeMode.uppercase()) {
+        "LIGHT" -> false
+        "DARK" -> true
+        else -> isSystemInDarkTheme()
+    }
+    
+    HydroTheme(darkTheme = darkTheme, accentColor = settings.accentColor) {
         MainScreen(
             homeStore = homeStore,
             historyStore = historyStore,
             analyticsStore = analyticsStore,
             achievementsStore = achievementsStore,
             settingsStore = settingsStore,
+            soundPlayer = soundPlayer,
             onCreateProfile = onCreateProfile,
         )
     }

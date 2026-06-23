@@ -16,6 +16,7 @@ val androidPlatformModule: Module = module {
     single { DatabaseDriverFactory(androidContext()) }
     single<PlatformReminderScheduler> { AndroidReminderScheduler(androidContext()) }
     single<NotificationPermissionController> { AndroidNotificationPermissionController(androidContext()) }
+    single<com.bose.hydrohabit.util.SoundPlayer> { com.bose.hydrohabit.util.AndroidSoundPlayer(androidContext()) }
 }
 
 /** Call once from Application.onCreate(), passing the application context. */

@@ -42,6 +42,7 @@ import com.bose.hydrohabit.theme.glassCard
 @Composable
 fun SettingsScreen(
     state: SettingsState,
+    soundPlayer: com.bose.hydrohabit.util.SoundPlayer,
     onSaveProfile: (Double, Int) -> Unit,
     onUpdateReminders: (ReminderSettings) -> Unit,
     modifier: Modifier = Modifier,
@@ -138,6 +139,98 @@ fun SettingsScreen(
                     },
                     modifier = Modifier.fillMaxWidth(),
                 ) { Text("Apply interval") }
+            }
+        }
+
+        Box(Modifier.fillMaxWidth().glassCard(shape = RoundedCornerShape(20.dp))) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("Customization", fontWeight = FontWeight.Bold)
+                
+                // 1. Theme Selection
+                Text("Theme", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("SYSTEM", "LIGHT", "DARK").forEach { mode ->
+                        FilterChip(
+                            selected = state.reminderSettings.themeMode.uppercase() == mode,
+                            onClick = { onUpdateReminders(state.reminderSettings.copy(themeMode = mode)) },
+                            label = { Text(mode.lowercase().replaceFirstChar { it.uppercase() }) }
+                        )
+                    }
+                }
+
+                // 2. Notification Sound Selection
+                Text("Notification Sound", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                val sounds = listOf("default", "chime", "glass", "droplet", "ping")
+                
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    sounds.forEach { sound ->
+                        val isSelected = state.reminderSettings.notificationSound.lowercase() == sound
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            FilterChip(
+                                selected = isSelected,
+                                onClick = { onUpdateReminders(state.reminderSettings.copy(notificationSound = sound)) },
+                                label = { Text(sound.replaceFirstChar { it.uppercase() }) }
+                            )
+                            Button(
+                                onClick = { soundPlayer.playSoundPreview(sound) },
+                                modifier = Modifier.padding(start = 8.dp)
+                            ) {
+                                Text("▶ Play Preview")
+                            }
+                        }
+                    }
+                }
+
+                // 3. Accent Color Picker
+                Text("Accent Color", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                
+                // Predefined presets
+                val presets = listOf(
+                    "Ocean Blue" to "#006690",
+                    "Teal Breeze" to "#006A75",
+                    "Sunset Orange" to "#E65100",
+                    "Emerald Green" to "#1B5E20",
+                    "Purple Rain" to "#6A1B9A"
+                )
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    presets.forEach { (name, hex) ->
+                        val isSelected = state.reminderSettings.accentColor.equals(hex, ignoreCase = true)
+                        FilterChip(
+                            selected = isSelected,
+                            onClick = { onUpdateReminders(state.reminderSettings.copy(accentColor = hex)) },
+                            label = { Text(name) }
+                        )
+                    }
+                }
+                
+                // Custom Color Input
+                var customColorInput by rememberSaveable(state.reminderSettings.accentColor) { mutableStateOf(state.reminderSettings.accentColor) }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = customColorInput,
+                        onValueChange = {
+                            customColorInput = it
+                            if (it.length == 7 && it.startsWith("#")) {
+                                onUpdateReminders(state.reminderSettings.copy(accentColor = it))
+                            }
+                        },
+                        label = { Text("Custom Color Hex (e.g. #006690)") },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
             }
         }
     }

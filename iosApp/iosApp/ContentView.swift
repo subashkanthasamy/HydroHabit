@@ -162,8 +162,67 @@ struct StatTile: View {
 
 // MARK: - Root (bottom tabs, each in a NavigationStack with GlassyBackground)
 
+extension Color {
+    static func fromHex(_ hex: String) -> Color {
+        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        var int: UInt64 = 0
+        Scanner(string: hex).scanHexInt64(&int)
+        let a, r, g, b: UInt64
+        switch hex.count {
+        case 3: // RGB (12-bit)
+            (a, r, g, b) = (255, (int >> 8) * 17, (int >> 4 & 0xF) * 17, (int & 0xF) * 17)
+        case 6: // RGB (24-bit)
+            (a, r, g, b) = (255, int >> 16, int >> 8 & 0xFF, int & 0xFF)
+        case 8: // ARGB (32-bit)
+            (a, r, g, b) = (int >> 24, int >> 16 & 0xFF, int >> 8 & 0xFF, int & 0xFF)
+        default:
+            (a, r, g, b) = (255, 0, 102, 144) // Default brand primary
+        }
+        return Color(
+            .sRGB,
+            red: Double(r) / 255,
+            green: Double(g) / 255,
+            blue: Double(b) / 255,
+            opacity: Double(a) / 255
+        )
+    }
+}
+
+@MainActor
+final class RootModel: ObservableObject {
+    @Published var settings: ReminderSettings = ReminderSettings.DEFAULT
+    private let store: SettingsStoreNative
+    private var token: CancellationToken?
+
+    init() {
+        let store = KoinHelper().createSettingsStore()
+        self.store = store
+        self.settings = store.currentState.reminderSettings
+        self.token = store.watch { [weak self] newState in
+            self?.settings = newState.reminderSettings
+        }
+    }
+    
+    func updateSettings(_ settings: ReminderSettings) {
+        store.dispatch(intent: SettingsIntent.UpdateReminders(settings: settings))
+    }
+
+    deinit { token?.cancel(); store.close() }
+}
+
 struct RootView: View {
+    @StateObject private var rootModel = RootModel()
+    
     var body: some View {
+        let preferredScheme: ColorScheme? = {
+            switch rootModel.settings.themeMode.uppercased() {
+            case "LIGHT": return .light
+            case "DARK": return .dark
+            default: return nil
+            }
+        }()
+        let brandColor = Color.fromHex(rootModel.settings.accentColor)
+
         TabView {
             NavigationStack {
                 ZStack {
@@ -205,6 +264,8 @@ struct RootView: View {
             }
             .tabItem { Label("Settings", systemImage: "gearshape.fill") }
         }
+        .preferredColorScheme(preferredScheme)
+        .tint(brandColor)
     }
 }
 
@@ -541,6 +602,64 @@ final class SettingsModel: ObservableObject {
     func saveProfile(weight: Double, age: Int32) { store.saveProfile(weightKg: weight, age: age) }
     func setEnabled(_ on: Bool) { store.setRemindersEnabled(enabled: on) }
     func setInterval(_ minutes: Int32) { store.setReminderInterval(minutes: minutes) }
+    
+    func updateThemeMode(_ mode: String) {
+        let s = state.reminderSettings
+        let newSettings = ReminderSettings(
+            enabled: s.enabled,
+            intervalMinutes: s.intervalMinutes,
+            wakeTime: s.wakeTime,
+            sleepTime: s.sleepTime,
+            strategy: s.strategy,
+            quietWindows: s.quietWindows,
+            skipIfRecentlyLoggedMinutes: s.skipIfRecentlyLoggedMinutes,
+            soundEnabled: s.soundEnabled,
+            vibrationEnabled: s.vibrationEnabled,
+            notificationSound: s.notificationSound,
+            themeMode: mode,
+            accentColor: s.accentColor
+        )
+        store.dispatch(intent: SettingsIntent.UpdateReminders(settings: newSettings))
+    }
+    
+    func updateNotificationSound(_ sound: String) {
+        let s = state.reminderSettings
+        let newSettings = ReminderSettings(
+            enabled: s.enabled,
+            intervalMinutes: s.intervalMinutes,
+            wakeTime: s.wakeTime,
+            sleepTime: s.sleepTime,
+            strategy: s.strategy,
+            quietWindows: s.quietWindows,
+            skipIfRecentlyLoggedMinutes: s.skipIfRecentlyLoggedMinutes,
+            soundEnabled: s.soundEnabled,
+            vibrationEnabled: s.vibrationEnabled,
+            notificationSound: sound,
+            themeMode: s.themeMode,
+            accentColor: s.accentColor
+        )
+        store.dispatch(intent: SettingsIntent.UpdateReminders(settings: newSettings))
+    }
+    
+    func updateAccentColor(_ hex: String) {
+        let s = state.reminderSettings
+        let newSettings = ReminderSettings(
+            enabled: s.enabled,
+            intervalMinutes: s.intervalMinutes,
+            wakeTime: s.wakeTime,
+            sleepTime: s.sleepTime,
+            strategy: s.strategy,
+            quietWindows: s.quietWindows,
+            skipIfRecentlyLoggedMinutes: s.skipIfRecentlyLoggedMinutes,
+            soundEnabled: s.soundEnabled,
+            vibrationEnabled: s.vibrationEnabled,
+            notificationSound: s.notificationSound,
+            themeMode: s.themeMode,
+            accentColor: hex
+        )
+        store.dispatch(intent: SettingsIntent.UpdateReminders(settings: newSettings))
+    }
+
     deinit { token?.cancel(); store.close() }
 }
 
@@ -602,6 +721,104 @@ struct SettingsView: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .frame(maxWidth: .infinity)
+                }
+                .padding()
+                .glassCard(cornerRadius: 20)
+
+                // Customization Section
+                VStack(alignment: .leading, spacing: 14) {
+                    Text("Customization").font(.headline).fontWeight(.bold)
+                    
+                    // 1. Theme Selection
+                    Text("Theme").font(.subheadline).foregroundStyle(.secondary)
+                    Picker("Theme Mode", selection: Binding(
+                        get: { model.state.reminderSettings.themeMode },
+                        set: { model.updateThemeMode($0) }
+                    )) {
+                        Text("System").tag("SYSTEM")
+                        Text("Light").tag("LIGHT")
+                        Text("Dark").tag("DARK")
+                    }
+                    .pickerStyle(.segmented)
+                    
+                    Divider()
+                    
+                    // 2. Notification Sound Selection
+                    Text("Notification Sound").font(.subheadline).foregroundStyle(.secondary)
+                    let sounds = ["default", "chime", "glass", "droplet", "ping"]
+                    ForEach(sounds, id: \.self) { sound in
+                        HStack {
+                            Text(sound.capitalized)
+                                .fontWeight(model.state.reminderSettings.notificationSound == sound ? .bold : .regular)
+                            Spacer()
+                            if model.state.reminderSettings.notificationSound == sound {
+                                Image(systemName: "checkmark").foregroundColor(.blue)
+                            }
+                            Button(action: {
+                                KoinHelper().playSoundPreview(soundName: sound)
+                            }) {
+                                Label("Preview", systemImage: "play.circle.fill")
+                            }
+                            .buttonStyle(.borderless)
+                        }
+                        .padding(.vertical, 4)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            model.updateNotificationSound(sound)
+                        }
+                    }
+                    
+                    Divider()
+                    
+                    // 3. Accent Color Picker
+                    Text("Accent Color").font(.subheadline).foregroundStyle(.secondary)
+                    
+                    let presets = [
+                        ("Ocean Blue", "#006690"),
+                        ("Teal Breeze", "#006A75"),
+                        ("Sunset Orange", "#E65100"),
+                        ("Emerald Green", "#1B5E20"),
+                        ("Purple Rain", "#6A1B9A")
+                    ]
+                    
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 12) {
+                            ForEach(presets, id: \.1) { name, hex in
+                                Button(action: {
+                                    model.updateAccentColor(hex)
+                                }) {
+                                    VStack {
+                                        Circle()
+                                            .fill(Color.fromHex(hex))
+                                            .frame(width: 32, height: 32)
+                                            .overlay(
+                                                Circle()
+                                                    .stroke(Color.primary, lineWidth: model.state.reminderSettings.accentColor.uppercased() == hex.uppercased() ? 2 : 0)
+                                            )
+                                        Text(name)
+                                            .font(.caption2)
+                                            .foregroundStyle(.primary)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Custom Hex Picker
+                    HStack {
+                        Text("Custom Hex:")
+                            .font(.caption)
+                        TextField("#006690", text: Binding(
+                            get: { model.state.reminderSettings.accentColor },
+                            set: { val in
+                                if val.count == 7 && val.hasPrefix("#") {
+                                    model.updateAccentColor(val)
+                                }
+                            }
+                        ))
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 120)
+                    }
                 }
                 .padding()
                 .glassCard(cornerRadius: 20)
