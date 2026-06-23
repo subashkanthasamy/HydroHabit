@@ -190,7 +190,7 @@ extension Color {
 
 @MainActor
 final class RootModel: ObservableObject {
-    @Published var settings: ReminderSettings = ReminderSettings.DEFAULT
+    @Published var settings: ReminderSettings = ReminderSettings.companion.DEFAULT
     private let store: SettingsStoreNative
     private var token: CancellationToken?
 
@@ -204,7 +204,7 @@ final class RootModel: ObservableObject {
     }
     
     func updateSettings(_ settings: ReminderSettings) {
-        store.dispatch(intent: SettingsIntent.UpdateReminders(settings: settings))
+        store.dispatch(intent: SettingsIntentUpdateReminders(settings: settings))
     }
 
     deinit { token?.cancel(); store.close() }
@@ -619,7 +619,7 @@ final class SettingsModel: ObservableObject {
             themeMode: mode,
             accentColor: s.accentColor
         )
-        store.dispatch(intent: SettingsIntent.UpdateReminders(settings: newSettings))
+        store.dispatch(intent: SettingsIntentUpdateReminders(settings: newSettings))
     }
     
     func updateNotificationSound(_ sound: String) {
@@ -638,7 +638,7 @@ final class SettingsModel: ObservableObject {
             themeMode: s.themeMode,
             accentColor: s.accentColor
         )
-        store.dispatch(intent: SettingsIntent.UpdateReminders(settings: newSettings))
+        store.dispatch(intent: SettingsIntentUpdateReminders(settings: newSettings))
     }
     
     func updateAccentColor(_ hex: String) {
@@ -657,7 +657,7 @@ final class SettingsModel: ObservableObject {
             themeMode: s.themeMode,
             accentColor: hex
         )
-        store.dispatch(intent: SettingsIntent.UpdateReminders(settings: newSettings))
+        store.dispatch(intent: SettingsIntentUpdateReminders(settings: newSettings))
     }
 
     deinit { token?.cancel(); store.close() }
