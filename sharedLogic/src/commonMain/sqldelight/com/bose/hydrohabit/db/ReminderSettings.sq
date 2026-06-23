@@ -1,0 +1,19 @@
+CREATE TABLE ReminderSettingsEntity (
+    id INTEGER NOT NULL PRIMARY KEY,
+    enabled INTEGER NOT NULL,
+    intervalMinutes INTEGER NOT NULL,
+    wakeTime TEXT NOT NULL,
+    sleepTime TEXT NOT NULL,
+    strategy TEXT NOT NULL,
+    quietWindowsJson TEXT NOT NULL,
+    skipIfRecentlyLoggedMinutes INTEGER NOT NULL,
+    soundEnabled INTEGER NOT NULL,
+    vibrationEnabled INTEGER NOT NULL
+);
+
+selectSettings:
+SELECT * FROM ReminderSettingsEntity WHERE id = 0;
+
+upsertSettings:
+INSERT OR REPLACE INTO ReminderSettingsEntity(id, enabled, intervalMinutes, wakeTime, sleepTime, strategy, quietWindowsJson, skipIfRecentlyLoggedMinutes, soundEnabled, vibrationEnabled)
+VALUES (0, ?, ?, ?, ?, ?, ?, ?, ?, ?);

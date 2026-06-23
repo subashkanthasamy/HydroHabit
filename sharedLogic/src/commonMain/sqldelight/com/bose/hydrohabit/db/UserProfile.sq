@@ -1,0 +1,19 @@
+CREATE TABLE UserProfileEntity (
+    id TEXT NOT NULL PRIMARY KEY,
+    weightKg REAL NOT NULL,
+    age INTEGER NOT NULL,
+    gender TEXT,
+    activityLevel TEXT NOT NULL,
+    wakeTime TEXT NOT NULL,
+    sleepTime TEXT NOT NULL,
+    unitSystem TEXT NOT NULL,
+    createdAt INTEGER NOT NULL,
+    updatedAt INTEGER NOT NULL
+);
+
+selectProfile:
+SELECT * FROM UserProfileEntity LIMIT 1;
+
+upsertProfile:
+INSERT OR REPLACE INTO UserProfileEntity(id, weightKg, age, gender, activityLevel, wakeTime, sleepTime, unitSystem, createdAt, updatedAt)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);

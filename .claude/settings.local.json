@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(rtk gradlew *)",
+      "Bash(cd /Users/subash-14497/AndroidStudioProjects/HydroHabit/sharedLogic/build/test-results/testAndroidHostTest)",
+      "Bash(rtk ls *)",
+      "Bash(rtk grep *)"
+    ]
+  }
+}

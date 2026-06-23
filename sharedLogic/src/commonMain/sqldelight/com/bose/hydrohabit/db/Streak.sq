@@ -1,0 +1,15 @@
+CREATE TABLE StreakEntity (
+    id INTEGER NOT NULL PRIMARY KEY,
+    currentDailyStreak INTEGER NOT NULL,
+    longestDailyStreak INTEGER NOT NULL,
+    currentWeeklyStreak INTEGER NOT NULL,
+    currentMonthlyStreak INTEGER NOT NULL,
+    lastQualifyingDate TEXT
+);
+
+selectStreak:
+SELECT * FROM StreakEntity WHERE id = 0;
+
+upsertStreak:
+INSERT OR REPLACE INTO StreakEntity(id, currentDailyStreak, longestDailyStreak, currentWeeklyStreak, currentMonthlyStreak, lastQualifyingDate)
+VALUES (0, ?, ?, ?, ?, ?);

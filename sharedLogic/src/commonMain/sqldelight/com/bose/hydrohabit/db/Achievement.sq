@@ -1,0 +1,19 @@
+CREATE TABLE AchievementEntity (
+    id TEXT NOT NULL PRIMARY KEY,
+    title TEXT NOT NULL,
+    description TEXT NOT NULL,
+    type TEXT NOT NULL,
+    threshold REAL NOT NULL,
+    unlockedAt INTEGER,
+    progress REAL NOT NULL
+);
+
+selectAll:
+SELECT * FROM AchievementEntity;
+
+upsertAchievement:
+INSERT OR REPLACE INTO AchievementEntity(id, title, description, type, threshold, unlockedAt, progress)
+VALUES (?, ?, ?, ?, ?, ?, ?);
+
+unlock:
+UPDATE AchievementEntity SET unlockedAt = ?, progress = 1.0 WHERE id = ?;

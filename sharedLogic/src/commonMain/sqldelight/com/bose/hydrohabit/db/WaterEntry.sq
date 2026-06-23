@@ -1,0 +1,32 @@
+CREATE TABLE WaterEntryEntity (
+    id TEXT NOT NULL PRIMARY KEY,
+    amountMl INTEGER NOT NULL,
+    timestamp INTEGER NOT NULL,
+    date TEXT NOT NULL,
+    source TEXT NOT NULL,
+    note TEXT
+);
+
+CREATE INDEX water_entry_date ON WaterEntryEntity(date);
+
+selectByDate:
+SELECT * FROM WaterEntryEntity WHERE date = ? ORDER BY timestamp;
+
+selectInRange:
+SELECT * FROM WaterEntryEntity WHERE date >= ? AND date <= ? ORDER BY timestamp;
+
+totalForDate:
+SELECT COALESCE(SUM(amountMl), 0) FROM WaterEntryEntity WHERE date = ?;
+
+totalCount:
+SELECT COUNT(*) FROM WaterEntryEntity;
+
+totalVolume:
+SELECT COALESCE(SUM(amountMl), 0) FROM WaterEntryEntity;
+
+insertEntry:
+INSERT OR REPLACE INTO WaterEntryEntity(id, amountMl, timestamp, date, source, note)
+VALUES (?, ?, ?, ?, ?, ?);
+
+deleteEntry:
+DELETE FROM WaterEntryEntity WHERE id = ?;

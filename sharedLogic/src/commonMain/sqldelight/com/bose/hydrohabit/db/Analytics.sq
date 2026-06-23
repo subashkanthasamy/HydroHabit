@@ -1,0 +1,13 @@
+-- Per-day consumption rollup over a range, with the day's goal (0 when none was set).
+-- Days with no entries are merged in by the repository from the goals table.
+dailySummaries:
+SELECT
+    w.date AS date,
+    SUM(w.amountMl) AS consumedMl,
+    COUNT(*) AS entryCount,
+    COALESCE(g.targetMl, 0) AS goalMl
+FROM WaterEntryEntity w
+LEFT JOIN DailyGoalEntity g ON g.date = w.date
+WHERE w.date >= ? AND w.date <= ?
+GROUP BY w.date
+ORDER BY w.date;

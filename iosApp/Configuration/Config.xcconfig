@@ -1,0 +1,10 @@
+TEAM_ID=
+
+PRODUCT_NAME=HydroHabit
+PRODUCT_BUNDLE_IDENTIFIER=com.bose.hydrohabit.HydroHabit$(TEAM_ID)
+
+CURRENT_PROJECT_VERSION=1
+MARKETING_VERSION=1.0
+
+// SQLDelight's native driver (sqliter) needs the system SQLite linked into the app.
+OTHER_LDFLAGS=$(inherited) -lsqlite3

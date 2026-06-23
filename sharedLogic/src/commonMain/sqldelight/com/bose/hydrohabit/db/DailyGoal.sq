@@ -1,0 +1,18 @@
+CREATE TABLE DailyGoalEntity (
+    date TEXT NOT NULL PRIMARY KEY,
+    targetMl INTEGER NOT NULL,
+    source TEXT NOT NULL,
+    baseMl INTEGER NOT NULL,
+    activityAdjustmentMl INTEGER NOT NULL,
+    weatherAdjustmentMl INTEGER NOT NULL
+);
+
+selectByDate:
+SELECT * FROM DailyGoalEntity WHERE date = ?;
+
+selectInRange:
+SELECT * FROM DailyGoalEntity WHERE date >= ? AND date <= ? ORDER BY date;
+
+upsertGoal:
+INSERT OR REPLACE INTO DailyGoalEntity(date, targetMl, source, baseMl, activityAdjustmentMl, weatherAdjustmentMl)
+VALUES (?, ?, ?, ?, ?, ?);
