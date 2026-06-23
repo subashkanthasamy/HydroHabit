@@ -1,6 +1,7 @@
 package com.bose.hydrohabit
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -8,10 +9,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -31,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import com.bose.hydrohabit.domain.model.ReminderSettings
 import com.bose.hydrohabit.domain.model.ReminderStrategy
 import com.bose.hydrohabit.presentation.settings.SettingsState
+import com.bose.hydrohabit.theme.glassCard
 
 /**
  * Settings form. Editable field state is hoisted and **seeded once** when data finishes loading, so
@@ -68,7 +70,7 @@ fun SettingsScreen(
     ) {
         Text("Settings", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
 
-        Card(Modifier.fillMaxWidth()) {
+        Box(Modifier.fillMaxWidth().glassCard(shape = RoundedCornerShape(20.dp))) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("Profile", fontWeight = FontWeight.Bold)
                 OutlinedTextField(
@@ -98,7 +100,7 @@ fun SettingsScreen(
             }
         }
 
-        Card(Modifier.fillMaxWidth()) {
+        Box(Modifier.fillMaxWidth().glassCard(shape = RoundedCornerShape(20.dp))) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("Reminders", fontWeight = FontWeight.Bold)
                 Row(

@@ -12,18 +12,19 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Card
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.bose.hydrohabit.domain.model.AnalyticsReport
 import com.bose.hydrohabit.domain.model.ReportPeriod
 import com.bose.hydrohabit.presentation.analytics.AnalyticsState
+import com.bose.hydrohabit.theme.glassCard
 
 @Composable
 fun AnalyticsScreen(
@@ -54,7 +55,11 @@ fun AnalyticsScreen(
             SummaryCard(report)
             BreakdownCard(report)
             report.insights.forEach { insight ->
-                Card(Modifier.fillMaxWidth()) {
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .glassCard(shape = RoundedCornerShape(16.dp))
+                ) {
                     Text(insight.message, Modifier.padding(16.dp), style = MaterialTheme.typography.bodyMedium)
                 }
             }
@@ -64,7 +69,11 @@ fun AnalyticsScreen(
 
 @Composable
 private fun SummaryCard(report: AnalyticsReport) {
-    Card(Modifier.fillMaxWidth()) {
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .glassCard(shape = RoundedCornerShape(16.dp))
+    ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text("Average: ${report.averageMl} ml/day", fontWeight = FontWeight.Bold)
             Text("Goal completion: ${(report.goalCompletionRate * 100).toInt()}%")
@@ -77,18 +86,29 @@ private fun SummaryCard(report: AnalyticsReport) {
 @Composable
 private fun BreakdownCard(report: AnalyticsReport) {
     val max = report.dailyBreakdown.maxOf { it.consumedMl }.coerceAtLeast(1)
-    Card(Modifier.fillMaxWidth()) {
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .glassCard(shape = RoundedCornerShape(16.dp))
+    ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("Daily breakdown", fontWeight = FontWeight.Bold)
             report.dailyBreakdown.forEach { day ->
-                Column {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text("${day.date} — ${day.consumedMl} ml", style = MaterialTheme.typography.bodySmall)
                     Box(
                         Modifier
                             .fillMaxWidth(day.consumedMl.toFloat() / max)
-                            .height(8.dp)
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(MaterialTheme.colorScheme.primary),
+                            .height(10.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(
+                                brush = Brush.horizontalGradient(
+                                    colors = listOf(
+                                        MaterialTheme.colorScheme.primary,
+                                        MaterialTheme.colorScheme.secondary
+                                    )
+                                )
+                            ),
                     )
                 }
             }

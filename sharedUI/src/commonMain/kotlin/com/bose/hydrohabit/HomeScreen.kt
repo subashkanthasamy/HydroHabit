@@ -15,7 +15,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.background
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -44,6 +46,7 @@ import com.bose.hydrohabit.domain.model.InsightType
 import com.bose.hydrohabit.domain.model.WaterEntry
 import com.bose.hydrohabit.domain.usecase.QuickAddOption
 import com.bose.hydrohabit.presentation.home.HomeState
+import com.bose.hydrohabit.theme.glassCard
 import kotlinx.coroutines.delay
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
@@ -155,14 +158,18 @@ private fun AchievementBanner(state: HomeState, onDismiss: () -> Unit) {
     ) {
         val achievement = state.newlyUnlocked.lastOrNull()
         if (achievement != null) {
-            ElevatedCard(
-                Modifier.fillMaxWidth(),
-                colors = CardDefaults.elevatedCardColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                ),
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .glassCard(
+                        shape = RoundedCornerShape(16.dp),
+                        lightAlpha = 0.55f,
+                        darkAlpha = 0.15f,
+                        borderWidth = 1.5.dp
+                    )
             ) {
                 Column(Modifier.padding(16.dp)) {
-                    Text("🏆 Achievement unlocked", style = MaterialTheme.typography.labelLarge)
+                    Text("🏆 Achievement unlocked", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                     Text(achievement.title, fontWeight = FontWeight.Bold)
                     Text(achievement.description, style = MaterialTheme.typography.bodySmall)
                 }
@@ -173,7 +180,10 @@ private fun AchievementBanner(state: HomeState, onDismiss: () -> Unit) {
 
 @Composable
 private fun StatTile(label: String, value: String, modifier: Modifier = Modifier) {
-    Card(modifier) {
+    Box(
+        modifier
+            .glassCard(shape = RoundedCornerShape(16.dp))
+    ) {
         Column(
             Modifier.fillMaxWidth().padding(vertical = 16.dp, horizontal = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -227,7 +237,11 @@ private fun InsightCard(insight: HydrationInsight) {
         InsightType.TIP -> "💡"
         InsightType.TREND -> "📈"
     }
-    Card(Modifier.fillMaxWidth()) {
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .glassCard(shape = RoundedCornerShape(16.dp))
+    ) {
         Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(emoji, style = MaterialTheme.typography.titleLarge)
             Text(insight.message, style = MaterialTheme.typography.bodyMedium)
@@ -238,7 +252,11 @@ private fun InsightCard(insight: HydrationInsight) {
 @Composable
 private fun RecentActivity(entries: List<WaterEntry>) {
     if (entries.isEmpty()) {
-        Card(Modifier.fillMaxWidth()) {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .glassCard(shape = RoundedCornerShape(16.dp))
+        ) {
             Text(
                 "No water logged yet today — tap a quick-add above to get started.",
                 Modifier.padding(16.dp),
@@ -248,7 +266,11 @@ private fun RecentActivity(entries: List<WaterEntry>) {
         }
         return
     }
-    Card(Modifier.fillMaxWidth()) {
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .glassCard(shape = RoundedCornerShape(16.dp))
+    ) {
         Column(Modifier.padding(vertical = 4.dp)) {
             entries.forEach { entry ->
                 Row(
@@ -279,7 +301,11 @@ private fun OnboardingCard(onCreateProfile: (Double, Int) -> Unit) {
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        ElevatedCard(Modifier.fillMaxWidth()) {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .glassCard(shape = RoundedCornerShape(24.dp))
+        ) {
             Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(
                     value = weight,
@@ -312,9 +338,15 @@ private fun OnboardingCard(onCreateProfile: (Double, Int) -> Unit) {
 
 @Composable
 private fun ErrorCard(message: String) {
-    Card(
-        Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .glassCard(
+                shape = RoundedCornerShape(16.dp),
+                lightAlpha = 0.2f,
+                darkAlpha = 0.05f
+            )
+            .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f), shape = RoundedCornerShape(16.dp))
     ) {
         Text(
             message,
