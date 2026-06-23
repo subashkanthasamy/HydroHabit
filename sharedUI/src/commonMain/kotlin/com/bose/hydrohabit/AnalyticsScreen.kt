@@ -190,7 +190,7 @@ private fun StatTile(label: String, value: String, modifier: Modifier = Modifier
             Text(
                 label,
                 style = MaterialTheme.typography.labelSmall,
-                color = scheme.onSecondaryContainer,
+                color = scheme.onSecondaryContainer.copy(alpha = 0.7f),
             )
         }
     }
@@ -208,7 +208,6 @@ private fun DayTile(label: String, day: DaySummary) {
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Text(label, style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
-        // A4: drop redundant fontWeight on bodySmall (DayTile uses surfaceVariant+onSurface* — correct pairing, leave)
         Text(
             "${day.date}  ·  ${day.consumedMl} ml",
             style = MaterialTheme.typography.bodySmall,
@@ -341,7 +340,7 @@ private fun BreakdownChartCard(report: AnalyticsReport, period: ReportPeriod) {
             val barCount = bars.size
             val useScroll = period == ReportPeriod.MONTHLY || barCount > 10
             if (useScroll) {
-                val minChartWidth = (MIN_BAR_WIDTH + 8.dp) * barCount
+                val minChartWidth = (MIN_BAR_WIDTH + 8.dp) * barCount.coerceAtLeast(1)
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
