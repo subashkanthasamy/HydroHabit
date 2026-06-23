@@ -48,7 +48,13 @@ struct GlassCardModifier: ViewModifier {
     
     func body(content: Content) -> some View {
         let isDark = colorScheme == .dark
+        let baseColor = isDark ? Color(red: 0.12, green: 0.16, blue: 0.23) : Color.white
+        let opacity = isDark ? 0.12 : 0.65
         content
+            .background(
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .fill(baseColor.opacity(opacity))
+            )
             .background(
                 RoundedRectangle(cornerRadius: cornerRadius)
                     .fill(.thinMaterial)
@@ -77,10 +83,24 @@ extension View {
     }
 }
 
+// MARK: - Brand Color Extensions & Helpers
+extension Color {
+    static func brandPrimary(isDark: Bool) -> Color {
+        isDark ? Color(red: 0.50, green: 0.82, blue: 0.91) : Color(red: 0.0, green: 0.40, blue: 0.56)
+    }
+    static func brandSecondary(isDark: Bool) -> Color {
+        isDark ? Color(red: 0.31, green: 0.85, blue: 0.90) : Color(red: 0.0, green: 0.42, blue: 0.46)
+    }
+    static func brandOnSurfaceVariant(isDark: Bool) -> Color {
+        isDark ? Color(red: 0.80, green: 0.84, blue: 0.88) : Color(red: 0.25, green: 0.28, blue: 0.30)
+    }
+}
+
 // MARK: - Core Custom UI Views
 
 /// Animated circular hydration ring — the SwiftUI counterpart of the Compose `WaterRing`.
 struct WaterRing: View {
+    @Environment(\.colorScheme) var colorScheme
     let progress: Double      // 0...1
     let consumedMl: Int32
     let goalMl: Int32
@@ -88,6 +108,10 @@ struct WaterRing: View {
     private var clamped: Double { min(max(progress, 0), 1) }
 
     var body: some View {
+        let isDark = colorScheme == .dark
+        let colorStart = Color.brandSecondary(isDark: isDark)
+        let colorEnd = Color.brandPrimary(isDark: isDark)
+        
         ZStack {
             Circle()
                 .stroke(Color.primary.opacity(0.06), style: StrokeStyle(lineWidth: 24, lineCap: .round))
@@ -95,7 +119,7 @@ struct WaterRing: View {
                 .trim(from: 0, to: clamped)
                 .stroke(
                     AngularGradient(
-                        gradient: Gradient(colors: [.cyan, .blue, .cyan]),
+                        gradient: Gradient(colors: [colorStart, colorEnd, colorStart]),
                         center: .center,
                         startAngle: .degrees(-90),
                         endAngle: .degrees(270)
@@ -106,7 +130,7 @@ struct WaterRing: View {
             VStack(spacing: 4) {
                 Text("\(Int(clamped * 100))%")
                     .font(.system(size: 44, weight: .bold, design: .rounded))
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(Color.brandPrimary(isDark: isDark))
                     .contentTransition(.numericText())
                 Text("\(consumedMl) / \(goalMl) ml")
                     .font(.subheadline)
@@ -469,9 +493,13 @@ final class AchievementsModel: ObservableObject {
 }
 
 struct AchievementsView: View {
+    @Environment(\.colorScheme) var colorScheme
     @StateObject private var model = AchievementsModel()
     private let columns = [GridItem(.flexible()), GridItem(.flexible())]
     var body: some View {
+        let isDark = colorScheme == .dark
+        let unlockColor = isDark ? Color(red: 0.98, green: 0.82, blue: 0.20) : Color(red: 0.72, green: 0.47, blue: 0.0) // high contrast gold/amber in light mode
+        
         ScrollView {
             VStack(alignment: .leading) {
                 Text("\(model.state.unlockedCount) of \(model.state.achievements.count) unlocked")
@@ -480,13 +508,13 @@ struct AchievementsView: View {
                     ForEach(model.state.achievements, id: \.id) { a in
                         VStack(alignment: .leading, spacing: 6) {
                             Text(a.isUnlocked ? "🏆 \(a.title)" : "🔒 \(a.title)").bold()
-                                .foregroundStyle(a.isUnlocked ? .yellow : .primary)
+                                .foregroundStyle(a.isUnlocked ? unlockColor : .primary)
                             Text(a.description_).font(.caption)
                             if !a.isUnlocked { ProgressView(value: Double(a.progress)) }
                         }
                         .padding()
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(a.isUnlocked ? Color.yellow.opacity(0.08) : Color.primary.opacity(0.02))
+                        .background(a.isUnlocked ? unlockColor.opacity(0.08) : Color.primary.opacity(0.02))
                         .glassCard(cornerRadius: 14, borderWidth: a.isUnlocked ? 1.5 : 1)
                     }
                 }

@@ -25,8 +25,8 @@ import androidx.compose.ui.unit.dp
 fun Modifier.glassCard(
     shape: Shape = RoundedCornerShape(20.dp),
     borderWidth: Dp = 1.dp,
-    lightAlpha: Float = 0.45f,
-    darkAlpha: Float = 0.08f,
+    lightAlpha: Float = 0.65f,
+    darkAlpha: Float = 0.12f,
     shadowElevation: Dp = 0.dp
 ): Modifier {
     val isDark = isSystemInDarkTheme()

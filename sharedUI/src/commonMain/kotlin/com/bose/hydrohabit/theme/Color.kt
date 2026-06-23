@@ -5,9 +5,9 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.ui.graphics.Color
 
 // Hydration-focused brand palette — cool blues & teals for a fresh, "water" feel.
-private val Aqua = Color(0xFF0091C7)
+private val Aqua = Color(0xFF006690) // Darkened for >4.5:1 contrast in light theme
 private val AquaDark = Color(0xFF7FD1E8)
-private val Teal = Color(0xFF00BCD4)
+private val Teal = Color(0xFF006A75) // Darkened for >4.5:1 contrast in light theme
 private val DeepBlue = Color(0xFF0B3D59)
 
 val HydroLightColors = lightColorScheme(
@@ -25,7 +25,7 @@ val HydroLightColors = lightColorScheme(
     surface = Color(0xFFFFFFFF),
     onSurface = DeepBlue,
     surfaceVariant = Color(0xFFDDE7EC),
-    onSurfaceVariant = Color(0xFF40484C),
+    onSurfaceVariant = Color(0xFF3F484D), // Refined for 7:1 contrast
     error = Color(0xFFBA1A1A),
 )
 
@@ -44,6 +44,6 @@ val HydroDarkColors = darkColorScheme(
     surface = Color(0xFF161D20),
     onSurface = Color(0xFFDEE3E6),
     surfaceVariant = Color(0xFF40484C),
-    onSurfaceVariant = Color(0xFFBFC8CD),
+    onSurfaceVariant = Color(0xFFCBD5E1), // Lightened for high contrast
     error = Color(0xFFFFB4AB),
 )
