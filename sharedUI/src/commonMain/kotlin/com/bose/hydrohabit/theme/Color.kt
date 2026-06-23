@@ -7,7 +7,7 @@ import androidx.compose.ui.graphics.Color
 
 // Lavender soft-UI brand palette — periwinkle accents on a pale lilac ground.
 private val Periwinkle = Color(0xFF6C5CE7)      // primary, AA on white (4.86:1 verified)
-private val PeriwinkleBright = Color(0xFF7B6FE8) // decorative brand-2 (arcs, FAB)
+private val PeriwinkleBright = Color(0xFF5A4FD0) // secondary — darkened from 0xFF7B6FE8; white onSecondary ≥4.5:1 (5.0:1)
 private val Ink = Color(0xFF1E1B3A)              // primary text on light
 
 val LavenderLightBackground = Color(0xFFEFEDFB)
@@ -30,7 +30,7 @@ val HydroLightColors = lightColorScheme(
     surface = LavenderLightSurface,
     onSurface = Ink,
     surfaceVariant = Color(0xFFE4DFF7),
-    onSurfaceVariant = Color(0xFF6E6A8F),
+    onSurfaceVariant = Color(0xFF4E4A6A), // darkened from 0xFF6E6A8F; ≥4.5:1 on surfaceVariant (6.4:1)
     error = Color(0xFFBA1A1A),
 )
 
@@ -49,7 +49,7 @@ val HydroDarkColors = darkColorScheme(
     surface = LavenderDarkSurface,
     onSurface = Color(0xFFE7E4F5),
     surfaceVariant = Color(0xFF2E2A45),
-    onSurfaceVariant = Color(0xFFA7A2C4),
+    onSurfaceVariant = Color(0xFFB4B0D0), // lightened from 0xFFA7A2C4; ≥4.5:1 on dark surfaceVariant (6.6:1)
     error = Color(0xFFFFB4AB),
 )
 
@@ -116,6 +116,17 @@ fun hslToColor(h: Float, s: Float, l: Float, alpha: Float = 1f): Color {
     return Color(r, g, b, alpha)
 }
 
+/**
+ * Returns a high-contrast on-color (dark or white) for [c] based on WCAG relative luminance.
+ * Threshold 0.4: colors with L > 0.4 are "light" and require a dark on-color (0xFF1A1040),
+ * otherwise Color.White is used. Both pairings exceed WCAG AA 4.5:1 contrast.
+ */
+private fun onColorFor(c: Color): Color {
+    fun lin(v: Float) = if (v <= 0.04045f) v / 12.92f else Math.pow(((v + 0.055f) / 1.055).toDouble(), 2.4).toFloat()
+    val lum = 0.2126f * lin(c.red) + 0.7152f * lin(c.green) + 0.0722f * lin(c.blue)
+    return if (lum > 0.4f) Color(0xFF1A1040) else Color.White
+}
+
 fun generateDynamicColorScheme(accentColorHex: String, isDark: Boolean): ColorScheme {
     val baseColor = parseHexColor(accentColorHex)
     val hsl = baseColor.toHsl()
@@ -130,11 +141,11 @@ fun generateDynamicColorScheme(accentColorHex: String, isDark: Boolean): ColorSc
 
         darkColorScheme(
             primary = primaryColor,
-            onPrimary = Color(0xFF241B52),
+            onPrimary = onColorFor(primaryColor),
             primaryContainer = hslToColor(h, s, 0.25f),
             onPrimaryContainer = hslToColor(h, s, 0.90f),
             secondary = secondaryColor,
-            onSecondary = Color(0xFF241B52),
+            onSecondary = onColorFor(secondaryColor),
             secondaryContainer = hslToColor((h + 30f) % 360f, s, 0.20f),
             onSecondaryContainer = hslToColor((h + 30f) % 360f, s, 0.85f),
             tertiary = hslToColor((h + 180f) % 360f, s * 0.5f, 0.70f),
@@ -153,11 +164,11 @@ fun generateDynamicColorScheme(accentColorHex: String, isDark: Boolean): ColorSc
 
         lightColorScheme(
             primary = primaryColor,
-            onPrimary = Color.White,
+            onPrimary = onColorFor(primaryColor),
             primaryContainer = hslToColor(h, s, 0.90f),
             onPrimaryContainer = hslToColor(h, s, 0.15f),
             secondary = secondaryColor,
-            onSecondary = Color.White,
+            onSecondary = onColorFor(secondaryColor),
             secondaryContainer = hslToColor((h + 30f) % 360f, s, 0.92f),
             onSecondaryContainer = hslToColor((h + 30f) % 360f, s, 0.12f),
             tertiary = hslToColor((h + 180f) % 360f, s * 0.5f, 0.40f),
