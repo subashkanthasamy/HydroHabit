@@ -7,7 +7,7 @@ import androidx.compose.ui.graphics.Color
 
 // Lavender soft-UI brand palette — periwinkle accents on a pale lilac ground.
 private val Periwinkle = Color(0xFF6C5CE7)      // primary, AA on white (4.86:1 verified)
-private val PeriwinkleBright = Color(0xFF5A4FD0) // secondary — darkened from 0xFF7B6FE8; white onSecondary ≥4.5:1 (5.0:1)
+private val PeriwinkleBright = Color(0xFF5A4FD0) // secondary — darkened from 0xFF7B6FE8; white onSecondary ≥4.5:1 (~6.0:1)
 private val Ink = Color(0xFF1E1B3A)              // primary text on light
 
 val LavenderLightBackground = Color(0xFFEFEDFB)
@@ -124,7 +124,7 @@ fun hslToColor(h: Float, s: Float, l: Float, alpha: Float = 1f): Color {
 private fun onColorFor(c: Color): Color {
     fun lin(v: Float) = if (v <= 0.04045f) v / 12.92f else Math.pow(((v + 0.055f) / 1.055).toDouble(), 2.4).toFloat()
     val lum = 0.2126f * lin(c.red) + 0.7152f * lin(c.green) + 0.0722f * lin(c.blue)
-    return if (lum > 0.4f) Color(0xFF1A1040) else Color.White
+    return if (lum > 0.35f) Color(0xFF1A1040) else Color.White
 }
 
 fun generateDynamicColorScheme(accentColorHex: String, isDark: Boolean): ColorScheme {
@@ -154,7 +154,7 @@ fun generateDynamicColorScheme(accentColorHex: String, isDark: Boolean): ColorSc
             surface = LavenderDarkSurface,
             onSurface = Color(0xFFE7E4F5),
             surfaceVariant = Color(0xFF2E2A45),
-            onSurfaceVariant = Color(0xFFA7A2C4),
+            onSurfaceVariant = Color(0xFFB4B0D0),
             error = Color(0xFFFFB4AB),
         )
     } else {
@@ -177,7 +177,7 @@ fun generateDynamicColorScheme(accentColorHex: String, isDark: Boolean): ColorSc
             surface = LavenderLightSurface,
             onSurface = Ink,
             surfaceVariant = Color(0xFFE4DFF7),
-            onSurfaceVariant = Color(0xFF6E6A8F),
+            onSurfaceVariant = Color(0xFF4E4A6A),
             error = Color(0xFFBA1A1A),
         )
     }
