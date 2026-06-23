@@ -223,7 +223,7 @@ fun SettingsScreen(
                         if (w != null && a != null) onSaveProfile(w, a)
                     },
                     enabled = !weightError && !ageError && weight.isNotEmpty() && age.isNotEmpty(),
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
                     shape = RoundedCornerShape(16.dp),
                 ) { Text("Save profile & recalculate goal") }
             }
@@ -272,7 +272,7 @@ fun SettingsScreen(
                             ?.let { onUpdateReminders(state.reminderSettings.copy(intervalMinutes = it)) }
                     },
                     enabled = !intervalError && interval.isNotEmpty(),
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
                     shape = RoundedCornerShape(16.dp),
                 ) { Text("Apply interval") }
             }
@@ -336,6 +336,11 @@ fun SettingsScreen(
                 // customColorInput is NOT keyed on accentColor to avoid preset→field race.
                 // We only emit onUpdateReminders when the value passes the regex.
                 var customColorInput by rememberSaveable { mutableStateOf(state.reminderSettings.accentColor) }
+                // Sync hex field when a preset chip changes accentColor (race-safe: typed
+                // valid hex already updates accentColor, so re-assigning the same value is a no-op).
+                LaunchedEffect(state.reminderSettings.accentColor) {
+                    customColorInput = state.reminderSettings.accentColor
+                }
                 val hexError = customColorInput.isNotEmpty() && !HEX_REGEX.matches(customColorInput)
                 OutlinedTextField(
                     value = customColorInput,
