@@ -18,10 +18,13 @@ import androidx.compose.ui.unit.dp
 
 /**
  * Soft-UI card modifier. Renders a solid surface-filled rounded card with a
- * soft purple-tinted shadow. Replaces the old glassmorphic implementation.
+ * soft accent-tinted shadow.
  *
- * Params [borderWidth], [lightAlpha], and [darkAlpha] are retained for source
- * compatibility with existing call sites but are intentionally unused.
+ * **Source-compatibility note:** The params [borderWidth], [lightAlpha], and
+ * [darkAlpha] are retained solely so existing call sites continue to compile
+ * without changes. They have **no effect** — the underlying [softCard]
+ * implementation does not use them. For new code prefer calling [softCard]
+ * directly; it exposes only the params that are actually used.
  */
 @Composable
 fun Modifier.glassCard(
@@ -33,15 +36,17 @@ fun Modifier.glassCard(
 ): Modifier = this.softCard(shape = shape, elevation = shadowElevation)
 
 /**
- * Core soft card modifier used by [glassCard]. Applies a purple-tinted shadow and
- * fills the card with [MaterialTheme.colorScheme.surface].
+ * Core soft card modifier used by [glassCard]. Applies an accent-tinted shadow
+ * (derived from [MaterialTheme.colorScheme.primary] at 35 % alpha so it follows
+ * the user's dynamic theme) and fills the card with
+ * [MaterialTheme.colorScheme.surface].
  */
 @Composable
 fun Modifier.softCard(
     shape: Shape = RoundedCornerShape(24.dp),
     elevation: Dp = 10.dp,
 ): Modifier {
-    val spot = Color(0xFF4C3C8C)
+    val spot = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
     return this
         .shadow(elevation = elevation, shape = shape, ambientColor = spot, spotColor = spot)
         .background(color = MaterialTheme.colorScheme.surface, shape = shape)
