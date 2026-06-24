@@ -8,7 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -61,8 +61,7 @@ fun BarChart(bars: List<BarDatum>, modifier: Modifier = Modifier, height: Dp = 1
                 val frac = b.fraction.coerceIn(0f, 1f).coerceAtLeast(0.04f)
                 Box(
                     modifier = Modifier
-                        .fillMaxWidth(0.6f)
-                        .widthIn(max = 40.dp)
+                        .width(28.dp)
                         .fillMaxHeight(frac)
                         .clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp, bottomStart = 4.dp, bottomEnd = 4.dp))
                         .background(
