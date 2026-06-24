@@ -43,9 +43,13 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.bose.hydrohabit.domain.engine.HydrationGoalCalculator
 import com.bose.hydrohabit.domain.model.ReminderSettings
 import com.bose.hydrohabit.domain.model.ReminderStrategy
 import com.bose.hydrohabit.presentation.settings.SettingsState
+import kotlinx.datetime.Clock
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.todayIn
 import com.bose.hydrohabit.theme.glassCard
 import com.bose.hydrohabit.theme.softCard
 
@@ -94,12 +98,12 @@ fun SettingsScreen(
         }
     }
 
-    // Derived summary values for the hero cards
-    val goalMl = if (weight.isNotEmpty()) {
-        ((weight.toDoubleOrNull() ?: 70.0) * 30).toInt()
-    } else {
-        state.profile?.weightKg?.let { (it * 30).toInt() } ?: 2100
-    }
+    // Derived summary values for the hero cards — use the real calculator so this matches Home.
+    val goalMl = state.profile?.let { p ->
+        HydrationGoalCalculator()
+            .calculate(p, Clock.System.todayIn(TimeZone.currentSystemDefault()))
+            .targetMl
+    } ?: 2100
     val reminderIntervalDisplay = "${state.reminderSettings.intervalMinutes} min"
 
     // Validation helpers

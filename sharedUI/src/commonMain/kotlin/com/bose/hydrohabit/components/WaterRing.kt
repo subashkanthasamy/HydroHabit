@@ -7,10 +7,14 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -141,18 +145,27 @@ fun WaterRing(
                 )
             }
         }
-        // Center text (existing, unchanged — naturally overlays the canvas).
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                "${(animated * 100).toInt()}%",
-                style = MaterialTheme.typography.displaySmall,
-                color = MaterialTheme.colorScheme.primary,
-            )
-            Text(
-                "$consumedMl / $goalMl ml",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+        // Center text wrapped in a translucent surface scrim so it stays readable over any
+        // wave fill level (including 100% primary fill).
+        Box(
+            modifier = Modifier
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.6f))
+                .padding(horizontal = 22.dp, vertical = 12.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    "${(animated * 100).toInt()}%",
+                    style = MaterialTheme.typography.displaySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Text(
+                    "$consumedMl / $goalMl ml",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }
