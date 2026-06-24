@@ -19,7 +19,7 @@ struct HydroLogo: View {
     var body: some View {
         Canvas { context, size in
             let scale = size.width / 120.0
-            var transform = CGAffineTransform(scaleX: scale, y: scale)
+            let transform = CGAffineTransform(scaleX: scale, y: scale)
 
             // --- Teardrop droplet (filled) ---
             // SVG path (120-unit space):

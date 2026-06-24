@@ -97,21 +97,6 @@ extension View {
     }
 }
 
-// MARK: - Brand Color Extensions & Helpers
-// These helpers are intentionally thin wrappers so call sites stay readable.
-// All color values are sourced from HydroColors; no hardcoded aqua/cyan/indigo.
-extension Color {
-    static func brandPrimary(scheme: ColorScheme, accentHex: String) -> Color {
-        HydroColors.from(scheme, accentHex: accentHex).primary
-    }
-    static func brandSecondary(scheme: ColorScheme, accentHex: String) -> Color {
-        HydroColors.from(scheme, accentHex: accentHex).secondary
-    }
-    static func brandOnSurfaceVariant(scheme: ColorScheme, accentHex: String) -> Color {
-        HydroColors.from(scheme, accentHex: accentHex).muted
-    }
-}
-
 // MARK: - Core Custom UI Views
 
 // MARK: - Wave Fill Shape
@@ -159,8 +144,6 @@ struct WaterRing: View {
     let consumedMl: Int32
     let goalMl: Int32
 
-    @State private var wavePhase: Double = 0
-
     private var clamped: Double { min(max(progress, 0), 1) }
 
     var body: some View {
@@ -179,7 +162,7 @@ struct WaterRing: View {
                     .frame(width: innerDiameter, height: innerDiameter)
                     .hidden()  // size placeholder; actual fill below
                 ZStack {
-                    colors.secondary.opacity(0.55)
+                    colors.secondary.opacity(0.45)
                         .clipShape(
                             // Flat rectangle representing the fill level
                             Rectangle()
@@ -190,7 +173,7 @@ struct WaterRing: View {
                                     height: innerDiameter * CGFloat(clamped)
                                 ))
                         )
-                    colors.primary.opacity(0.45)
+                    colors.primary.opacity(0.6)
                         .clipShape(
                             Rectangle()
                                 .path(in: CGRect(
@@ -210,10 +193,10 @@ struct WaterRing: View {
                     let now = timeline.date.timeIntervalSinceReferenceDate
                     // Back wave: secondary color, slightly offset phase
                     WaterWaveShape(phase: now * 1.4 + .pi, level: clamped, amplitude: 7, frequency: 1.4)
-                        .fill(colors.secondary.opacity(0.55))
+                        .fill(colors.secondary.opacity(0.45))
                     // Front wave: primary color, leading phase
                     WaterWaveShape(phase: now * 1.8, level: clamped, amplitude: 5, frequency: 1.7)
-                        .fill(colors.primary.opacity(0.45))
+                        .fill(colors.primary.opacity(0.6))
                 }
                 .frame(width: innerDiameter, height: innerDiameter)
                 .clipShape(Circle())
