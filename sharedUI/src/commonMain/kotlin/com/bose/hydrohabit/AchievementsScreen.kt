@@ -119,8 +119,9 @@ private fun AchievementsTopBar(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = "Achievements",
-                style = MaterialTheme.typography.headlineSmall,
-                // B7: headlineSmall has its own weight; ExtraBold override removed
+                // Material top-app-bar title size; balances against the 48dp back button
+                // (headlineSmall read oversized/lopsided next to it).
+                style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.onSurface,
             )
             Text(
