@@ -54,6 +54,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.bose.hydrohabit.components.BarChart
 import com.bose.hydrohabit.components.BarDatum
+import com.bose.hydrohabit.components.HydroLogo
 import com.bose.hydrohabit.components.WaterRing
 import com.bose.hydrohabit.components.WeekStrip
 import com.bose.hydrohabit.domain.model.HydrationInsight
@@ -183,23 +184,8 @@ private fun HeaderRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        // Avatar circle: shows 💧 as text initial placeholder — decorative, not interactive
-        Box(
-            modifier = Modifier
-                .size(44.dp)
-                .clip(CircleShape)
-                .background(scheme.primaryContainer)
-                // Fix 3: mark the avatar box as decorative so TalkBack skips the emoji
-                .semantics { contentDescription = "" },
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = "💧",
-                style = MaterialTheme.typography.titleMedium,
-                // Fix 3: emoji is purely decorative here — clear semantics so it is not read
-                modifier = Modifier.clearAndSetSemantics {},
-            )
-        }
+        // Brand mark: HydroLogo composable (ring + teardrop) in primary tint
+        HydroLogo(modifier = Modifier.size(44.dp))
 
         // Greeting column
         Column(modifier = Modifier.weight(1f)) {
