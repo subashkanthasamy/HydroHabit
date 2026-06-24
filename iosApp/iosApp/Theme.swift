@@ -50,7 +50,7 @@ struct HydroColors {
                 // Android: onBackground dark = 0xFFE7E4F5
                 ink:                Color(.sRGB, red: 0xE7/255.0, green: 0xE4/255.0, blue: 0xF5/255.0, opacity: 1),
                 // Android: onSurfaceVariant dark = 0xFFB4B0D0 (adjusted for contrast); using muted ≈ A7A2C4
-                muted:              Color(.sRGB, red: 0xA7/255.0, green: 0xA2/255.0, blue: 0xC4/255.0, opacity: 1),
+                muted:              Color(.sRGB, red: 0xB4/255.0, green: 0xB0/255.0, blue: 0xD0/255.0, opacity: 1),
                 // Accent-driven; default periwinkle dark tint = 0xFFA99CFF (mirrors Android dark primary)
                 primary:            hexColor(accent),
                 // Fixed lighter periwinkle variant for dark — 0xFFA99CFF (matches Android HydroDarkColors.secondary approx)
@@ -69,7 +69,7 @@ struct HydroColors {
                 // Android: Ink / onBackground light = 0xFF1E1B3A
                 ink:                Color(.sRGB, red: 0x1E/255.0, green: 0x1B/255.0, blue: 0x3A/255.0, opacity: 1),
                 // Muted text — onSurfaceVariant light (0xFF6E6A8F per brief; Android uses 0xFF4E4A6A for contrast)
-                muted:              Color(.sRGB, red: 0x6E/255.0, green: 0x6A/255.0, blue: 0x8F/255.0, opacity: 1),
+                muted:              Color(.sRGB, red: 0x4E/255.0, green: 0x4A/255.0, blue: 0x6A/255.0, opacity: 1),
                 // Accent-driven; default periwinkle = 0xFF6C5CE7
                 primary:            hexColor(accent),
                 // Fixed slightly lighter periwinkle for light — 0xFF8B7BF0 (brighter than primary, softer for secondary roles)
