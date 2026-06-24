@@ -191,7 +191,7 @@ extension Color {
         case 8: // ARGB (32-bit)
             (a, r, g, b) = (int >> 24, int >> 16 & 0xFF, int >> 8 & 0xFF, int & 0xFF)
         default:
-            (a, r, g, b) = (255, 0, 102, 144) // Default brand primary
+            (a, r, g, b) = (255, 108, 92, 231) // Default brand primary (periwinkle #6C5CE7)
         }
         return Color(
             .sRGB,
@@ -236,7 +236,7 @@ struct RootView: View {
             default: return nil
             }
         }()
-        let brandColor = Color.fromHex(rootModel.settings.accentColor)
+        let brandColor = Color.fromHex(rootModel.settings.accentColor.isEmpty ? "#6C5CE7" : rootModel.settings.accentColor)
 
         TabView {
             NavigationStack {
