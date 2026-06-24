@@ -8,7 +8,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 
 @Composable
-actual fun hydroColorScheme(darkTheme: Boolean, dynamicColor: Boolean): ColorScheme {
+actual fun hydroColorScheme(darkTheme: Boolean, dynamicColor: Boolean, accentColor: String?): ColorScheme {
+    if (accentColor != null) {
+        return generateDynamicColorScheme(accentColor, darkTheme)
+    }
     if (dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
         val context = LocalContext.current
         return if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)

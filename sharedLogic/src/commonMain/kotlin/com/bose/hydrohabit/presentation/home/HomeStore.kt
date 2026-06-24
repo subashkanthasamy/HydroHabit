@@ -2,9 +2,13 @@ package com.bose.hydrohabit.presentation.home
 
 import com.bose.hydrohabit.core.AppResult
 import com.bose.hydrohabit.core.time.TimeProvider
+import com.bose.hydrohabit.domain.model.DailyProgress
 import com.bose.hydrohabit.domain.model.DateRange
 import com.bose.hydrohabit.domain.model.EntrySource
+import com.bose.hydrohabit.domain.model.Streak
 import com.bose.hydrohabit.domain.model.UnitSystem
+import com.bose.hydrohabit.domain.model.UserProfile
+import com.bose.hydrohabit.domain.model.WaterEntry
 import com.bose.hydrohabit.domain.usecase.AddWaterEntryUseCase
 import com.bose.hydrohabit.domain.usecase.EvaluateAchievementsUseCase
 import com.bose.hydrohabit.domain.usecase.GetHydrationInsightsUseCase
@@ -23,6 +27,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.minus
@@ -64,31 +69,33 @@ class HomeStore(
             HomeIntent.Load -> load()
             is HomeIntent.AddWater -> logWater(intent.amountMl, intent.source)
             is HomeIntent.AddQuickAdd -> logWater(intent.option.amountMl, EntrySource.QUICK_ADD)
-            HomeIntent.ClearUnlocked -> _state.value = _state.value.copy(newlyUnlocked = emptyList())
-            HomeIntent.ClearError -> _state.value = _state.value.copy(error = null)
+            HomeIntent.ClearUnlocked -> _state.update { it.copy(newlyUnlocked = emptyList()) }
+            HomeIntent.ClearError -> _state.update { it.copy(error = null) }
         }
     }
 
     private fun load() {
         val today = timeProvider.today()
-        _state.value = _state.value.copy(date = today, isLoading = true)
+        _state.update { it.copy(date = today, isLoading = true) }
         combine(
             observeDailyProgress(today),
             observeStreak(),
             getUserProfile(),
             observeEntriesForDate(today),
         ) { progress, streak, profile, entries ->
-            val units = profile?.unitSystem ?: UnitSystem.METRIC
-            _state.value.copy(
-                isLoading = false,
-                progress = progress,
-                streak = streak,
-                quickAddOptions = getQuickAddOptions(units),
-                recentEntries = entries.sortedByDescending { it.timestamp }.take(RECENT_LIMIT),
-            )
-        }.onEach { newState ->
-            _state.value = newState
-            val goal = newState.progress?.goalMl ?: 0
+            ProgressData(progress, streak, profile, entries)
+        }.onEach { data ->
+            val units = data.profile?.unitSystem ?: UnitSystem.METRIC
+            _state.update { currentState ->
+                currentState.copy(
+                    isLoading = false,
+                    progress = data.progress,
+                    streak = data.streak,
+                    quickAddOptions = getQuickAddOptions(units),
+                    recentEntries = data.entries.sortedByDescending { it.timestamp }.take(RECENT_LIMIT),
+                )
+            }
+            val goal = data.progress?.goalMl ?: 0
             if (goal > 0 && lastGoalMl == 0) {
                 rescheduleReminders()
                 refreshInsights()
@@ -100,13 +107,13 @@ class HomeStore(
     private fun logWater(amountMl: Int, source: EntrySource) {
         scope.launch {
             when (val result = addWaterEntry(amountMl, source)) {
-                is AppResult.Failure -> _state.value = _state.value.copy(error = result.error.message)
+                is AppResult.Failure -> _state.update { it.copy(error = result.error.message) }
                 is AppResult.Success -> {
                     // Recompute streak first so achievement evaluation sees the latest streak.
                     recalculateStreak()
                     val unlocked = evaluateAchievements()
                     if (unlocked.isNotEmpty()) {
-                        _state.value = _state.value.copy(newlyUnlocked = _state.value.newlyUnlocked + unlocked)
+                        _state.update { it.copy(newlyUnlocked = it.newlyUnlocked + unlocked) }
                     }
                     // Logging changes remaining goal + recent activity → re-plan reminders (adaptive
                     // skip/catch-up) and refresh insights.
@@ -121,7 +128,8 @@ class HomeStore(
         scope.launch {
             val today = timeProvider.today()
             val range = DateRange(today.minus(INSIGHT_WINDOW_DAYS, DateTimeUnit.DAY), today)
-            _state.value = _state.value.copy(insights = getHydrationInsights(range))
+            val insights = getHydrationInsights(range)
+            _state.update { it.copy(insights = insights) }
         }
     }
 
@@ -130,3 +138,10 @@ class HomeStore(
         private const val INSIGHT_WINDOW_DAYS = 6
     }
 }
+
+private data class ProgressData(
+    val progress: DailyProgress?,
+    val streak: Streak,
+    val profile: UserProfile?,
+    val entries: List<WaterEntry>
+)

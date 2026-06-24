@@ -8,12 +8,15 @@ CREATE TABLE ReminderSettingsEntity (
     quietWindowsJson TEXT NOT NULL,
     skipIfRecentlyLoggedMinutes INTEGER NOT NULL,
     soundEnabled INTEGER NOT NULL,
-    vibrationEnabled INTEGER NOT NULL
+    vibrationEnabled INTEGER NOT NULL,
+    notificationSound TEXT NOT NULL DEFAULT 'default',
+    themeMode TEXT NOT NULL DEFAULT 'SYSTEM',
+    accentColor TEXT NOT NULL DEFAULT '#6C5CE7'
 );
 
 selectSettings:
 SELECT * FROM ReminderSettingsEntity WHERE id = 0;
 
 upsertSettings:
-INSERT OR REPLACE INTO ReminderSettingsEntity(id, enabled, intervalMinutes, wakeTime, sleepTime, strategy, quietWindowsJson, skipIfRecentlyLoggedMinutes, soundEnabled, vibrationEnabled)
-VALUES (0, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT OR REPLACE INTO ReminderSettingsEntity(id, enabled, intervalMinutes, wakeTime, sleepTime, strategy, quietWindowsJson, skipIfRecentlyLoggedMinutes, soundEnabled, vibrationEnabled, notificationSound, themeMode, accentColor)
+VALUES (0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);

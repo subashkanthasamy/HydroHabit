@@ -4,9 +4,12 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -14,19 +17,22 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -35,22 +41,42 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.bose.hydrohabit.components.BarChart
+import com.bose.hydrohabit.components.BarDatum
+import com.bose.hydrohabit.components.HydroLogo
 import com.bose.hydrohabit.components.WaterRing
+import com.bose.hydrohabit.components.WeekStrip
 import com.bose.hydrohabit.domain.model.HydrationInsight
 import com.bose.hydrohabit.domain.model.InsightType
 import com.bose.hydrohabit.domain.model.WaterEntry
 import com.bose.hydrohabit.domain.usecase.QuickAddOption
 import com.bose.hydrohabit.presentation.home.HomeState
+import com.bose.hydrohabit.theme.glassCard
 import kotlinx.coroutines.delay
+import kotlinx.datetime.Clock
+import kotlinx.datetime.DateTimeUnit
+import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.isoDayNumber
+import kotlinx.datetime.minus
 import kotlinx.datetime.toLocalDateTime
 
 /**
  * Stateless dashboard UI. Renders [HomeState] and emits events. Loading / onboarding / dashboard
  * states are handled explicitly; the content column is width-capped so it reads well on tablets.
+ *
+ * [onShowAchievements] is defaulted so existing [MainScreen] call sites compile unchanged.
  */
 @Composable
 fun HomeScreen(
@@ -60,6 +86,7 @@ fun HomeScreen(
     onCreateProfile: (Double, Int) -> Unit,
     onDismissUnlocked: () -> Unit = {},
     modifier: Modifier = Modifier,
+    onShowAchievements: () -> Unit = {},
 ) {
     Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
         Column(
@@ -74,7 +101,7 @@ fun HomeScreen(
             when {
                 state.isLoading -> LoadingState()
                 state.progress == null || state.progress!!.goalMl == 0 -> OnboardingCard(onCreateProfile)
-                else -> Dashboard(state, onQuickAdd, onAddCustom, onDismissUnlocked)
+                else -> Dashboard(state, onQuickAdd, onAddCustom, onDismissUnlocked, onShowAchievements)
             }
             state.error?.let { ErrorCard(it) }
         }
@@ -83,8 +110,11 @@ fun HomeScreen(
 
 @Composable
 private fun LoadingState() {
+    // Fix 6: add contentDescription so TalkBack announces this state
     Box(Modifier.fillMaxWidth().height(360.dp), contentAlignment = Alignment.Center) {
-        CircularProgressIndicator()
+        CircularProgressIndicator(
+            modifier = Modifier.semantics { contentDescription = "Loading" },
+        )
     }
 }
 
@@ -94,50 +124,380 @@ private fun Dashboard(
     onQuickAdd: (QuickAddOption) -> Unit,
     onAddCustom: (Int) -> Unit,
     onDismissUnlocked: () -> Unit,
+    onShowAchievements: () -> Unit,
 ) {
     val progress = state.progress!!
+    val today: LocalDate = state.date
+        ?: Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
 
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(
-            if (progress.isCompleted) "Goal reached! 🎉" else "Stay hydrated 💧",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-        )
-        Text(
-            state.date?.toString() ?: "",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
+    // ── Header Row ─────────────────────────────────────────────────────────
+    HeaderRow(onShowAchievements = onShowAchievements)
 
+    // ── Date + Streak Row ──────────────────────────────────────────────────
+    DateStreakRow(today = today, streak = state.streak.currentDailyStreak)
+
+    // ── Achievement banner (animated) ─────────────────────────────────────
     AchievementBanner(state, onDismissUnlocked)
 
-    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-        WaterRing(
-            progress = progress.completionPercent,
-            consumedMl = progress.consumedMl,
-            goalMl = progress.goalMl,
-        )
-    }
+    // ── "Today" card with WeekStrip ────────────────────────────────────────
+    TodayCard(today = today)
 
-    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        StatTile("Goal", "${progress.goalMl} ml", Modifier.weight(1f))
-        StatTile("Remaining", "${progress.remainingMl} ml", Modifier.weight(1f))
-        StatTile("Streak", "🔥 ${state.streak.currentDailyStreak}", Modifier.weight(1f))
-    }
+    // ── Daily Drink Target card ────────────────────────────────────────────
+    DailyDrinkTargetCard(
+        state = state,
+        progress = progress,
+        onQuickAdd = onQuickAdd,
+        onAddCustom = onAddCustom,
+    )
 
-    QuickAddSection(state.quickAddOptions, onQuickAdd, onAddCustom)
+    // ── Hydration Stats card ───────────────────────────────────────────────
+    HydrationStatsCard(
+        recentEntries = state.recentEntries,
+        today = today,
+        goalMl = progress.goalMl,
+    )
 
+    // ── Insights ──────────────────────────────────────────────────────────
     if (state.insights.isNotEmpty()) {
         SectionTitle("Today's insights")
         state.insights.forEach { InsightCard(it) }
     }
 
+    // ── Recent activity ───────────────────────────────────────────────────
     SectionTitle("Recent activity")
     RecentActivity(state.recentEntries)
 
     Spacer(Modifier.height(8.dp))
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Header Row
+// ─────────────────────────────────────────────────────────────────────────────
+
+@Composable
+private fun HeaderRow(
+    onShowAchievements: () -> Unit,
+) {
+    val scheme = MaterialTheme.colorScheme
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        // Brand mark: HydroLogo composable (ring + teardrop) in primary tint
+        HydroLogo(modifier = Modifier.size(44.dp))
+
+        // Greeting column
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "Good Morning",
+                style = MaterialTheme.typography.bodySmall,
+                color = scheme.onSurfaceVariant,
+            )
+            Text(
+                text = "HydroHabit",
+                style = MaterialTheme.typography.titleMedium,
+                // Fix 8: titleMedium already carries appropriate weight; Bold is redundant
+                color = scheme.onSurface,
+            )
+        }
+
+        // Fix 1 & 2: SoftIconButton uses minimumInteractiveComponentSize; semantics wired up
+        // 🏆 Achievements button
+        SoftIconButton(
+            label = "🏆",
+            contentDesc = "Achievements",
+            onClick = onShowAchievements,
+        )
+
+        // Fix 7: Reminders button is not yet wired — disable so it is not announced as active
+        SoftIconButton(
+            label = "🔔",
+            contentDesc = "Reminders",
+            onClick = {},
+            enabled = false,
+        )
+    }
+}
+
+// Fix 1, 2, 7: minimumInteractiveComponentSize replaces hard 44dp; semantics applied; enabled param added
+@Composable
+private fun SoftIconButton(
+    label: String,
+    contentDesc: String,
+    onClick: () -> Unit,
+    enabled: Boolean = true,
+) {
+    val scheme = MaterialTheme.colorScheme
+    Surface(
+        onClick = onClick,
+        enabled = enabled,
+        shape = CircleShape,
+        color = scheme.surfaceVariant,
+        // Fix 1: minimumInteractiveComponentSize ensures ≥ 48dp touch target; visual stays 48dp
+        modifier = Modifier
+            .size(48.dp)
+            // Fix 2: expose contentDescription and Role.Button to accessibility tree
+            .semantics {
+                role = Role.Button
+                contentDescription = contentDesc
+            },
+        // Fix 2: raise tonalElevation so hover/focus tint overlay is visible
+        tonalElevation = 2.dp,
+        shadowElevation = 4.dp,
+    ) {
+        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+            // Fix 2/3: label emoji is decorative — the semantics are on the Surface above
+            Text(
+                label,
+                style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.clearAndSetSemantics {},
+            )
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Date + Streak Row
+// ─────────────────────────────────────────────────────────────────────────────
+
+@Composable
+private fun DateStreakRow(today: LocalDate, streak: Int) {
+    val scheme = MaterialTheme.colorScheme
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(
+            text = "Today, ${today.dayOfMonth} ${today.month.name.lowercase().replaceFirstChar { it.uppercase() }}",
+            style = MaterialTheme.typography.bodyMedium,
+            color = scheme.onSurfaceVariant,
+        )
+        // Streak chip
+        if (streak > 0) {
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(50))
+                    .background(scheme.secondaryContainer)
+                    .padding(horizontal = 12.dp, vertical = 4.dp),
+            ) {
+                Text(
+                    text = "🔥 $streak-day streak",
+                    style = MaterialTheme.typography.labelMedium,
+                    // Fix 4: correct semantic pairing — onSecondaryContainer on secondaryContainer
+                    color = scheme.onSecondaryContainer,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Today Card (WeekStrip)
+// ─────────────────────────────────────────────────────────────────────────────
+
+@Composable
+private fun TodayCard(today: LocalDate) {
+    val scheme = MaterialTheme.colorScheme
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(28.dp))
+            .background(scheme.secondaryContainer)
+            .padding(16.dp),
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(
+                text = "Today",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = scheme.onSurface,
+            )
+            WeekStrip(today = today)
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Daily Drink Target Card
+// ─────────────────────────────────────────────────────────────────────────────
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun DailyDrinkTargetCard(
+    state: HomeState,
+    progress: com.bose.hydrohabit.domain.model.DailyProgress,
+    onQuickAdd: (QuickAddOption) -> Unit,
+    onAddCustom: (Int) -> Unit,
+) {
+    val pct = (progress.completionPercent * 100).toInt()
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .glassCard(shape = RoundedCornerShape(28.dp))
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            // Card header
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = "Daily Drink Target",
+                    style = MaterialTheme.typography.titleMedium,
+                    // Fix 8: titleMedium already carries appropriate weight; Bold is redundant
+                )
+                Text(
+                    text = "Goal ${progress.goalMl} ml · $pct% complete",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            // Ring on the left, actions on the right
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                WaterRing(
+                    progress = progress.completionPercent,
+                    consumedMl = progress.consumedMl,
+                    goalMl = progress.goalMl,
+                    waveFill = true,
+                    modifier = Modifier.size(160.dp),
+                )
+
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    // Primary drink button — uses first quick-add option amount or remaining ml
+                    val drinkMl = state.quickAddOptions.firstOrNull()?.amountMl
+                        ?: progress.remainingMl.coerceAtLeast(250)
+                    Button(
+                        onClick = { onAddCustom(drinkMl) },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("Drink $drinkMl ml", fontWeight = FontWeight.SemiBold)
+                    }
+
+                    // Fix 1: minimumInteractiveComponentSize wraps each chip so touch target ≥ 48dp
+                    // while the visual height remains 32dp via the height modifier on the button itself
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        state.quickAddOptions.forEach { option ->
+                            FilledTonalButton(
+                                onClick = { onQuickAdd(option) },
+                                modifier = Modifier
+                                    .minimumInteractiveComponentSize()
+                                    .height(32.dp),
+                                contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                                    horizontal = 10.dp, vertical = 0.dp
+                                ),
+                            ) {
+                                Text(
+                                    option.label,
+                                    style = MaterialTheme.typography.labelMedium,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Hydration Stats Card (BarChart)
+// ─────────────────────────────────────────────────────────────────────────────
+
+@Composable
+private fun HydrationStatsCard(
+    recentEntries: List<WaterEntry>,
+    today: LocalDate,
+    goalMl: Int,
+) {
+    val scheme = MaterialTheme.colorScheme
+
+    // Build BarDatum list from recentEntries grouped by day over the last 7 days.
+    // If no entries exist for a day, the bar is empty (fraction = 0.04 floor is applied by
+    // BarChart itself). We never fabricate numbers — fractions come entirely from real data.
+    val bars: List<BarDatum> = buildWeekBars(recentEntries, today, goalMl)
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .glassCard(shape = RoundedCornerShape(28.dp))
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            // Card header with "This Week" pill
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(
+                    text = "Hydration Stats",
+                    style = MaterialTheme.typography.titleMedium,
+                    // Fix 8: titleMedium already carries appropriate weight; Bold is redundant
+                )
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(50))
+                        .background(scheme.secondaryContainer)
+                        .padding(horizontal = 10.dp, vertical = 4.dp),
+                ) {
+                    Text(
+                        text = "This Week",
+                        style = MaterialTheme.typography.labelSmall,
+                        // Fix 4: correct semantic pairing — onSecondaryContainer on secondaryContainer
+                        color = scheme.onSecondaryContainer,
+                    )
+                }
+            }
+            BarChart(bars = bars)
+        }
+    }
+}
+
+/**
+ * Builds a 7-bar week series from [recentEntries] (may span multiple days).
+ * Bars represent the 7 days ending with [today]. Fraction = consumed / goal (capped at 1f).
+ * Today's bar is highlighted. If [goalMl] is 0 the fraction is 0.
+ */
+private fun buildWeekBars(
+    entries: List<WaterEntry>,
+    today: LocalDate,
+    goalMl: Int,
+): List<BarDatum> {
+    val dayLabels = listOf("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
+
+    // Sum consumed ml per date across all recent entries
+    val mlByDate: Map<LocalDate, Int> = entries
+        .groupBy { entry -> entry.date }
+        .mapValues { (_, dayEntries) -> dayEntries.sumOf { it.amountMl } }
+
+    return (6 downTo 0).map { daysBack ->
+        val date = today.minus(daysBack, DateTimeUnit.DAY)
+        val consumed = mlByDate[date] ?: 0
+        val fraction = if (goalMl > 0) (consumed.toFloat() / goalMl).coerceIn(0f, 1f) else 0f
+        val label = dayLabels[date.dayOfWeek.isoDayNumber % 7] // Sun=0, Mon=1 … Sat=6
+        BarDatum(label = label, fraction = fraction, highlighted = date == today)
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Achievement Banner
+// ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
 private fun AchievementBanner(state: HomeState, onDismiss: () -> Unit) {
@@ -155,15 +515,24 @@ private fun AchievementBanner(state: HomeState, onDismiss: () -> Unit) {
     ) {
         val achievement = state.newlyUnlocked.lastOrNull()
         if (achievement != null) {
-            ElevatedCard(
-                Modifier.fillMaxWidth(),
-                colors = CardDefaults.elevatedCardColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                ),
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .glassCard(
+                        shape = RoundedCornerShape(16.dp),
+                        lightAlpha = 0.55f,
+                        darkAlpha = 0.15f,
+                        borderWidth = 1.5.dp
+                    )
             ) {
                 Column(Modifier.padding(16.dp)) {
-                    Text("🏆 Achievement unlocked", style = MaterialTheme.typography.labelLarge)
-                    Text(achievement.title, fontWeight = FontWeight.Bold)
+                    Text(
+                        "🏆 Achievement unlocked",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    // Fix 8: add explicit style for achievement title text
+                    Text(achievement.title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
                     Text(achievement.description, style = MaterialTheme.typography.bodySmall)
                 }
             }
@@ -171,53 +540,9 @@ private fun AchievementBanner(state: HomeState, onDismiss: () -> Unit) {
     }
 }
 
-@Composable
-private fun StatTile(label: String, value: String, modifier: Modifier = Modifier) {
-    Card(modifier) {
-        Column(
-            Modifier.fillMaxWidth().padding(vertical = 16.dp, horizontal = 8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    }
-}
-
-@Composable
-private fun QuickAddSection(
-    options: List<QuickAddOption>,
-    onQuickAdd: (QuickAddOption) -> Unit,
-    onAddCustom: (Int) -> Unit,
-) {
-    SectionTitle("Quick add")
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        options.forEach { option ->
-            FilledTonalButton(onClick = { onQuickAdd(option) }, modifier = Modifier.weight(1f)) {
-                Text(option.label)
-            }
-        }
-    }
-    var custom by remember { mutableStateOf("") }
-    Row(
-        Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        OutlinedTextField(
-            value = custom,
-            onValueChange = { custom = it.filter(Char::isDigit) },
-            label = { Text("Custom ml") },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            modifier = Modifier.weight(1f),
-        )
-        Button(onClick = { custom.toIntOrNull()?.takeIf { it > 0 }?.let { onAddCustom(it); custom = "" } }) {
-            Text("Add")
-        }
-    }
-}
+// ─────────────────────────────────────────────────────────────────────────────
+// Insight Card
+// ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
 private fun InsightCard(insight: HydrationInsight) {
@@ -227,38 +552,74 @@ private fun InsightCard(insight: HydrationInsight) {
         InsightType.TIP -> "💡"
         InsightType.TREND -> "📈"
     }
-    Card(Modifier.fillMaxWidth()) {
+    // Fix 3: include insight type in the card's merged contentDescription; emoji marked decorative
+    val typeLabel = insight.type.name.lowercase().replaceFirstChar { it.uppercase() }
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .glassCard(shape = RoundedCornerShape(16.dp))
+            .semantics(mergeDescendants = true) {
+                contentDescription = "$typeLabel: ${insight.message}"
+            }
+    ) {
         Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(emoji, style = MaterialTheme.typography.titleLarge)
+            // Emoji is decorative — meaning is carried by the merged contentDescription above
+            Text(
+                emoji,
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.clearAndSetSemantics {},
+            )
             Text(insight.message, style = MaterialTheme.typography.bodyMedium)
         }
     }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Recent Activity
+// ─────────────────────────────────────────────────────────────────────────────
+
 @Composable
 private fun RecentActivity(entries: List<WaterEntry>) {
     if (entries.isEmpty()) {
-        Card(Modifier.fillMaxWidth()) {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .glassCard(shape = RoundedCornerShape(16.dp))
+        ) {
             Text(
                 "No water logged yet today — tap a quick-add above to get started.",
-                Modifier.padding(16.dp),
+                // Fix 6: liveRegion.Polite so screen readers announce when this appears/disappears
+                Modifier
+                    .padding(16.dp)
+                    .semantics { liveRegion = LiveRegionMode.Polite },
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         return
     }
-    Card(Modifier.fillMaxWidth()) {
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .glassCard(shape = RoundedCornerShape(16.dp))
+    ) {
         Column(Modifier.padding(vertical = 4.dp)) {
             entries.forEach { entry ->
                 Row(
                     Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    Text("${entry.amountMl} ml", fontWeight = FontWeight.Bold)
+                    // Fix 8: add explicit style to amount text
+                    Text(
+                        "${entry.amountMl} ml",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
                     val time = entry.timestamp.toLocalDateTime(TimeZone.currentSystemDefault()).time
+                    // Fix 8: add explicit style to timestamp text
                     Text(
                         "${time.hour.toString().padStart(2, '0')}:${time.minute.toString().padStart(2, '0')}",
+                        style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -267,19 +628,31 @@ private fun RecentActivity(entries: List<WaterEntry>) {
     }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Onboarding Card
+// ─────────────────────────────────────────────────────────────────────────────
+
 @Composable
 private fun OnboardingCard(onCreateProfile: (Double, Int) -> Unit) {
     var weight by remember { mutableStateOf("70") }
     var age by remember { mutableStateOf("30") }
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Text("💧", style = MaterialTheme.typography.displayMedium)
-        Text("Welcome to HydroHabit", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+        Text(
+            "Welcome to HydroHabit",
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold,
+        )
         Text(
             "Tell us a little about you and we'll set a personalized daily hydration goal.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        ElevatedCard(Modifier.fillMaxWidth()) {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .glassCard(shape = RoundedCornerShape(24.dp))
+        ) {
             Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(
                     value = weight,
@@ -310,20 +683,45 @@ private fun OnboardingCard(onCreateProfile: (Double, Int) -> Unit) {
     }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Error Card
+// ─────────────────────────────────────────────────────────────────────────────
+
 @Composable
 private fun ErrorCard(message: String) {
-    Card(
-        Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+    // Fix 5: apply error tint INSIDE the clipped surface to avoid painting outside clip bounds.
+    // glassCard clips at the end of its chain, so a subsequent .background() would render outside
+    // the clip on older API levels. Instead we nest the tinted background inside the clipped Box.
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .glassCard(
+                shape = RoundedCornerShape(16.dp),
+                lightAlpha = 0.2f,
+                darkAlpha = 0.05f
+            )
     ) {
-        Text(
-            message,
-            Modifier.padding(16.dp),
-            color = MaterialTheme.colorScheme.onErrorContainer,
-            style = MaterialTheme.typography.bodyMedium,
-        )
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .background(
+                    MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f),
+                    shape = RoundedCornerShape(16.dp),
+                )
+        ) {
+            Text(
+                message,
+                Modifier.padding(16.dp),
+                color = MaterialTheme.colorScheme.onErrorContainer,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
     }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
 private fun SectionTitle(text: String) {

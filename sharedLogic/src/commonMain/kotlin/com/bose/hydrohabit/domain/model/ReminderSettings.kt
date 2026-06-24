@@ -19,6 +19,9 @@ data class ReminderSettings(
     val skipIfRecentlyLoggedMinutes: Int = 30,
     val soundEnabled: Boolean = true,
     val vibrationEnabled: Boolean = true,
+    val notificationSound: String = "default",
+    val themeMode: String = "SYSTEM",
+    val accentColor: String = "#6C5CE7",
 ) {
     companion object {
         /** Sensible defaults used until the user has a profile / saved settings. */

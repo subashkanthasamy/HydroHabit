@@ -1,11 +1,145 @@
 import SwiftUI
 import SharedLogic
 
-// MARK: - Components
+// MARK: - Accent hex environment key
+
+private struct AccentHexKey: EnvironmentKey {
+    static let defaultValue: String = "#6C5CE7"
+}
+
+extension EnvironmentValues {
+    var accentHex: String {
+        get { self[AccentHexKey.self] }
+        set { self[AccentHexKey.self] = newValue }
+    }
+}
+
+// MARK: - Glassmorphism Components & Helpers
+
+/// Screen-wide container that draws glowing ambient blobs in the background.
+struct GlassyBackground: View {
+    @Environment(\.colorScheme) var colorScheme
+    @Environment(\.accentHex) var accentHex
+
+    var body: some View {
+        let colors = HydroColors.from(colorScheme, accentHex: accentHex)
+        let glow1 = colors.primary.opacity(colorScheme == .dark ? 0.10 : 0.14)
+        let glow2 = colors.secondary.opacity(colorScheme == .dark ? 0.07 : 0.10)
+        let glow3 = colors.primary.opacity(colorScheme == .dark ? 0.04 : 0.07)
+
+        ZStack {
+            colors.background.ignoresSafeArea()
+
+            // Glowing mesh circles
+            Circle()
+                .fill(glow1)
+                .frame(width: 400, height: 400)
+                .blur(radius: 80)
+                .offset(x: 180, y: -250)
+
+            Circle()
+                .fill(glow2)
+                .frame(width: 350, height: 350)
+                .blur(radius: 70)
+                .offset(x: -180, y: 300)
+
+            Circle()
+                .fill(glow3)
+                .frame(width: 250, height: 250)
+                .blur(radius: 60)
+                .offset(x: 0, y: 20)
+        }
+    }
+}
+
+/// Applies a semi-transparent, frosted glass filter with a glowing border overlay and drop shadow.
+struct GlassCardModifier: ViewModifier {
+    @Environment(\.colorScheme) var colorScheme
+    @Environment(\.accentHex) var accentHex
+
+    var cornerRadius: CGFloat
+    var borderWidth: CGFloat
+
+    func body(content: Content) -> some View {
+        let isDark = colorScheme == .dark
+        let colors = HydroColors.from(colorScheme, accentHex: accentHex)
+        let opacity = isDark ? 0.12 : 0.65
+        content
+            .background(
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .fill(colors.surface.opacity(opacity))
+            )
+            .background(
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .fill(.thinMaterial)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .stroke(
+                        LinearGradient(
+                            colors: [
+                                .white.opacity(isDark ? 0.08 : 0.4),
+                                .white.opacity(isDark ? 0.03 : 0.1)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: borderWidth
+                    )
+            )
+            .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 4)
+    }
+}
+
+extension View {
+    func glassCard(cornerRadius: CGFloat = 16, borderWidth: CGFloat = 1) -> some View {
+        self.modifier(GlassCardModifier(cornerRadius: cornerRadius, borderWidth: borderWidth))
+    }
+}
+
+// MARK: - Core Custom UI Views
+
+// MARK: - Wave Fill Shape
+
+/// A Shape that draws a sine-wave water surface and fills downward.
+/// `phase` drives horizontal wave motion; `level` (0…1) sets the waterline height.
+private struct WaterWaveShape: Shape {
+    var phase: Double   // radians, advances over time
+    var level: Double   // 0 = empty (bottom), 1 = full (top)
+    var amplitude: Double = 6
+    var frequency: Double = 1.5
+
+    // Animate both properties so SwiftUI interpolates them.
+    var animatableData: AnimatablePair<Double, Double> {
+        get { AnimatablePair(phase, level) }
+        set { phase = newValue.first; level = newValue.second }
+    }
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let waterlineY = rect.height * (1 - level)
+        let stepCount = Int(rect.width) + 1
+
+        path.move(to: CGPoint(x: 0, y: waterlineY))
+        for x in 0...stepCount {
+            let relX = Double(x) / rect.width
+            let angle = relX * frequency * 2 * .pi + phase
+            let y = waterlineY + amplitude * sin(angle)
+            path.addLine(to: CGPoint(x: CGFloat(x), y: y))
+        }
+        // Close down to the bottom-right then bottom-left to form a filled region.
+        path.addLine(to: CGPoint(x: rect.width, y: rect.height))
+        path.addLine(to: CGPoint(x: 0, y: rect.height))
+        path.closeSubpath()
+        return path
+    }
+}
 
 /// Animated circular hydration ring — the SwiftUI counterpart of the Compose `WaterRing`.
-/// A track circle plus a trimmed, gradient progress arc that eases from 0 to `progress`.
 struct WaterRing: View {
+    @Environment(\.colorScheme) var colorScheme
+    @Environment(\.accentHex) var accentHex
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
     let progress: Double      // 0...1
     let consumedMl: Int32
     let goalMl: Int32
@@ -13,14 +147,72 @@ struct WaterRing: View {
     private var clamped: Double { min(max(progress, 0), 1) }
 
     var body: some View {
+        let colors = HydroColors.from(colorScheme, accentHex: accentHex)
+
+        // Inner circle diameter = ring diameter minus stroke width on each side.
+        let ringSize: CGFloat = 232
+        let strokeWidth: CGFloat = 24
+        let innerDiameter = ringSize - strokeWidth * 2
+
         ZStack {
+            // --- Wave fill layer (behind arc and text) ---
+            if reduceMotion {
+                // Static fill: no sine waves, just a flat rectangle clipped to the circle.
+                Circle()
+                    .frame(width: innerDiameter, height: innerDiameter)
+                    .hidden()  // size placeholder; actual fill below
+                ZStack {
+                    colors.secondary.opacity(0.45)
+                        .clipShape(
+                            // Flat rectangle representing the fill level
+                            Rectangle()
+                                .path(in: CGRect(
+                                    x: 0,
+                                    y: innerDiameter * CGFloat(1 - clamped),
+                                    width: innerDiameter,
+                                    height: innerDiameter * CGFloat(clamped)
+                                ))
+                        )
+                    colors.primary.opacity(0.6)
+                        .clipShape(
+                            Rectangle()
+                                .path(in: CGRect(
+                                    x: 0,
+                                    y: innerDiameter * CGFloat(1 - clamped),
+                                    width: innerDiameter,
+                                    height: innerDiameter * CGFloat(clamped)
+                                ))
+                        )
+                }
+                .frame(width: innerDiameter, height: innerDiameter)
+                .clipShape(Circle())
+                .animation(.easeInOut(duration: 0.9), value: clamped)
+            } else {
+                // Animated wave fill via TimelineView.
+                TimelineView(.animation) { timeline in
+                    let now = timeline.date.timeIntervalSinceReferenceDate
+                    // Back wave: secondary color, slightly offset phase
+                    WaterWaveShape(phase: now * 1.4 + .pi, level: clamped, amplitude: 7, frequency: 1.4)
+                        .fill(colors.secondary.opacity(0.45))
+                    // Front wave: primary color, leading phase
+                    WaterWaveShape(phase: now * 1.8, level: clamped, amplitude: 5, frequency: 1.7)
+                        .fill(colors.primary.opacity(0.6))
+                }
+                .frame(width: innerDiameter, height: innerDiameter)
+                .clipShape(Circle())
+                .animation(.easeInOut(duration: 0.9), value: clamped)
+            }
+
+            // --- Track circle (behind arc) ---
             Circle()
-                .stroke(Color(.systemGray5), style: StrokeStyle(lineWidth: 24, lineCap: .round))
+                .stroke(colors.surfaceVariant, style: StrokeStyle(lineWidth: 24, lineCap: .round))
+
+            // --- Progress arc ---
             Circle()
                 .trim(from: 0, to: clamped)
                 .stroke(
                     AngularGradient(
-                        gradient: Gradient(colors: [.cyan, .blue, .cyan]),
+                        gradient: Gradient(colors: [colors.secondary, colors.primary, colors.secondary]),
                         center: .center,
                         startAngle: .degrees(-90),
                         endAngle: .degrees(270)
@@ -28,10 +220,12 @@ struct WaterRing: View {
                     style: StrokeStyle(lineWidth: 24, lineCap: .round)
                 )
                 .rotationEffect(.degrees(-90))
+
+            // --- Center text (front) ---
             VStack(spacing: 4) {
                 Text("\(Int(clamped * 100))%")
                     .font(.system(size: 44, weight: .bold, design: .rounded))
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(colors.primary)
                     .contentTransition(.numericText())
                 Text("\(consumedMl) / \(goalMl) ml")
                     .font(.subheadline)
@@ -57,27 +251,117 @@ struct StatTile: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 16)
-        .background(Color(.secondarySystemBackground))
-        .cornerRadius(12)
+        .glassCard(cornerRadius: 16)
     }
 }
 
-// MARK: - Root (bottom tabs, each in a NavigationStack for native large titles)
+// MARK: - Root (bottom tabs, each in a NavigationStack with GlassyBackground)
+
+extension Color {
+    static func fromHex(_ hex: String) -> Color {
+        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        var int: UInt64 = 0
+        Scanner(string: hex).scanHexInt64(&int)
+        let a, r, g, b: UInt64
+        switch hex.count {
+        case 3: // RGB (12-bit)
+            (a, r, g, b) = (255, (int >> 8) * 17, (int >> 4 & 0xF) * 17, (int & 0xF) * 17)
+        case 6: // RGB (24-bit)
+            (a, r, g, b) = (255, int >> 16, int >> 8 & 0xFF, int & 0xFF)
+        case 8: // ARGB (32-bit)
+            (a, r, g, b) = (int >> 24, int >> 16 & 0xFF, int >> 8 & 0xFF, int & 0xFF)
+        default:
+            (a, r, g, b) = (255, 108, 92, 231) // Default brand primary (periwinkle #6C5CE7)
+        }
+        return Color(
+            .sRGB,
+            red: Double(r) / 255,
+            green: Double(g) / 255,
+            blue: Double(b) / 255,
+            opacity: Double(a) / 255
+        )
+    }
+}
+
+@MainActor
+final class RootModel: ObservableObject {
+    @Published var settings: ReminderSettings = ReminderSettings.companion.DEFAULT
+    private let store: SettingsStoreNative
+    private var token: CancellationToken?
+
+    init() {
+        let store = KoinHelper().createSettingsStore()
+        self.store = store
+        self.settings = store.currentState.reminderSettings
+        self.token = store.watch { [weak self] newState in
+            self?.settings = newState.reminderSettings
+        }
+    }
+    
+    func updateSettings(_ settings: ReminderSettings) {
+        store.dispatch(intent: SettingsIntentUpdateReminders(settings: settings))
+    }
+
+    deinit { token?.cancel(); store.close() }
+}
 
 struct RootView: View {
+    @StateObject private var rootModel = RootModel()
+    
     var body: some View {
+        let preferredScheme: ColorScheme? = {
+            switch rootModel.settings.themeMode.uppercased() {
+            case "LIGHT": return .light
+            case "DARK": return .dark
+            default: return nil
+            }
+        }()
+        let brandColor = Color.fromHex(rootModel.settings.accentColor.isEmpty ? "#6C5CE7" : rootModel.settings.accentColor)
+
         TabView {
-            NavigationStack { HomeView().navigationTitle("HydroHabit") }
-                .tabItem { Label("Home", systemImage: "drop.fill") }
-            NavigationStack { HistoryView().navigationTitle("History") }
-                .tabItem { Label("History", systemImage: "list.bullet") }
-            NavigationStack { AnalyticsView().navigationTitle("Insights") }
-                .tabItem { Label("Stats", systemImage: "chart.bar.fill") }
-            NavigationStack { AchievementsView().navigationTitle("Achievements") }
-                .tabItem { Label("Awards", systemImage: "trophy.fill") }
-            NavigationStack { SettingsView().navigationTitle("Settings") }
-                .tabItem { Label("Settings", systemImage: "gearshape.fill") }
+            NavigationStack {
+                ZStack {
+                    GlassyBackground()
+                    HomeView().navigationTitle("HydroHabit")
+                }
+            }
+            .tabItem { Label("Home", systemImage: "drop.fill") }
+
+            NavigationStack {
+                ZStack {
+                    GlassyBackground()
+                    HistoryView().navigationTitle("History")
+                }
+            }
+            .tabItem { Label("History", systemImage: "list.bullet") }
+
+            NavigationStack {
+                ZStack {
+                    GlassyBackground()
+                    AnalyticsView().navigationTitle("Insights")
+                }
+            }
+            .tabItem { Label("Stats", systemImage: "chart.bar.fill") }
+
+            NavigationStack {
+                ZStack {
+                    GlassyBackground()
+                    AchievementsView().navigationTitle("Achievements")
+                }
+            }
+            .tabItem { Label("Awards", systemImage: "trophy.fill") }
+
+            NavigationStack {
+                ZStack {
+                    GlassyBackground()
+                    SettingsView().navigationTitle("Settings")
+                }
+            }
+            .tabItem { Label("Settings", systemImage: "gearshape.fill") }
         }
+        .environment(\.accentHex, rootModel.settings.accentColor.isEmpty ? "#6C5CE7" : rootModel.settings.accentColor)
+        .preferredColorScheme(preferredScheme)
+        .tint(brandColor)
     }
 }
 
@@ -114,7 +398,7 @@ struct HomeView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 18) {
                 if let progress = model.state.progress, progress.goalMl > 0 {
                     WaterRing(
                         progress: Double(progress.completionPercent),
@@ -141,6 +425,7 @@ struct HomeView: View {
                                 .buttonStyle(.bordered).frame(maxWidth: .infinity)
                         }
                     }
+                    
                     HStack {
                         TextField("Custom ml", text: $custom).keyboardType(.numberPad).textFieldStyle(.roundedBorder)
                         Button("Add") {
@@ -155,8 +440,7 @@ struct HomeView: View {
                                 .font(.subheadline)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .padding()
-                                .background(Color.blue.opacity(0.08))
-                                .cornerRadius(10)
+                                .glassCard(cornerRadius: 12)
                         }
                     }
 
@@ -164,18 +448,28 @@ struct HomeView: View {
                     if model.state.recentEntries.isEmpty {
                         Text("No water logged yet today.")
                             .font(.subheadline).foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding()
+                            .glassCard(cornerRadius: 12)
                     } else {
-                        ForEach(model.state.recentEntries, id: \.id) { entry in
-                            HStack {
-                                Text("\(entry.amountMl) ml").bold()
-                                Spacer()
-                                Text(entry.source.name.lowercased()).font(.caption).foregroundStyle(.secondary)
+                        VStack(alignment: .leading, spacing: 0) {
+                            ForEach(model.state.recentEntries, id: \.id) { entry in
+                                HStack {
+                                    Text("\(entry.amountMl) ml").bold()
+                                    Spacer()
+                                    Text(entry.source.name.lowercased()).font(.caption).foregroundStyle(.secondary)
+                                }
+                                .padding(.vertical, 10)
+                                .padding(.horizontal)
+                                if entry.id != model.state.recentEntries.last?.id {
+                                    Divider().padding(.horizontal)
+                                }
                             }
-                            .padding(.vertical, 6)
                         }
+                        .glassCard(cornerRadius: 16)
                     }
                 } else {
-                    VStack(alignment: .leading, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 14) {
                         Text("Welcome! Set up your goal").font(.headline)
                         TextField("Weight (kg)", text: $weight).keyboardType(.decimalPad).textFieldStyle(.roundedBorder)
                         TextField("Age", text: $age).keyboardType(.numberPad).textFieldStyle(.roundedBorder)
@@ -184,13 +478,19 @@ struct HomeView: View {
                         }.buttonStyle(.borderedProminent)
                     }
                     .padding()
-                    .background(Color.gray.opacity(0.1))
-                    .cornerRadius(12)
+                    .glassCard(cornerRadius: 20)
                 }
             }
             .padding()
         }
+        .scrollContentBackground(.hidden)
         .scrollDismissesKeyboard(.interactively)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                HydroLogo()
+                    .frame(width: 36, height: 36)
+            }
+        }
     }
 }
 
@@ -216,7 +516,7 @@ final class HistoryModel: ObservableObject {
 struct HistoryView: View {
     @StateObject private var model = HistoryModel()
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 14) {
             HStack {
                 Button("‹") { model.previous() }
                 Spacer()
@@ -235,15 +535,24 @@ struct HistoryView: View {
                 Text("No entries logged this day.").foregroundStyle(.secondary)
                 Spacer()
             } else {
-                List(model.state.entries, id: \.id) { entry in
-                    HStack {
-                        Text("\(entry.amountMl) ml").bold()
-                        Text(entry.source.name.lowercased()).font(.caption).foregroundStyle(.secondary)
-                        Spacer()
-                        Button("Delete", role: .destructive) { model.delete(entry.id) }
+                ScrollView {
+                    VStack(spacing: 10) {
+                        ForEach(model.state.entries, id: \.id) { entry in
+                            HStack {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("\(entry.amountMl) ml").bold()
+                                    Text(entry.source.name.lowercased()).font(.caption).foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Button("Delete", role: .destructive) { model.delete(entry.id) }
+                                    .buttonStyle(.bordered)
+                            }
+                            .padding()
+                            .glassCard(cornerRadius: 14)
+                        }
                     }
+                    .padding(.horizontal)
                 }
-                .listStyle(.insetGrouped)
             }
         }
         .padding(.top)
@@ -268,10 +577,12 @@ final class AnalyticsModel: ObservableObject {
 }
 
 struct AnalyticsView: View {
+    @Environment(\.colorScheme) var colorScheme
+    @Environment(\.accentHex) var accentHex
     @StateObject private var model = AnalyticsModel()
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 18) {
                 Picker("Period", selection: Binding(
                     get: { model.state.period },
                     set: { model.select($0) }
@@ -282,19 +593,48 @@ struct AnalyticsView: View {
                 }.pickerStyle(.segmented)
 
                 if let report = model.state.report, !report.dailyBreakdown.isEmpty {
-                    VStack(alignment: .leading, spacing: 4) {
+                    VStack(alignment: .leading, spacing: 8) {
                         Text("Average: \(report.averageMl) ml/day").bold()
                         Text("Goal completion: \(Int(report.goalCompletionRate * 100))%")
                         if let best = report.bestDay { Text("Best day: \(best.date.description) (\(best.consumedMl) ml)") }
                     }
                     .padding()
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color.gray.opacity(0.12))
-                    .cornerRadius(12)
+                    .glassCard(cornerRadius: 16)
+
+                    // Daily breakdown bar chart
+                    let analyticsColors = HydroColors.from(colorScheme, accentHex: accentHex)
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Daily breakdown").font(.headline).fontWeight(.bold)
+                        ForEach(report.dailyBreakdown, id: \.date.description) { day in
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text("\(day.date.description) — \(day.consumedMl) ml")
+                                    .font(.caption)
+                                GeometryReader { geo in
+                                    let maxVal = CGFloat(report.dailyBreakdown.map { $0.consumedMl }.max() ?? 1)
+                                    let fraction = maxVal > 0 ? CGFloat(day.consumedMl) / maxVal : 0
+                                    RoundedRectangle(cornerRadius: 4)
+                                        .fill(
+                                            LinearGradient(
+                                                colors: [analyticsColors.secondary, analyticsColors.primary],
+                                                startPoint: .leading,
+                                                endPoint: .trailing
+                                            )
+                                        )
+                                        .frame(width: geo.size.width * fraction)
+                                }
+                                .frame(height: 8)
+                            }
+                        }
+                    }
+                    .padding()
+                    .glassCard(cornerRadius: 16)
 
                     ForEach(report.insights, id: \.id) { insight in
-                        Text(insight.message).padding().frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Color.blue.opacity(0.1)).cornerRadius(8)
+                        Text(insight.message)
+                            .padding()
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .glassCard(cornerRadius: 12)
                     }
                 } else {
                     Text("Log some water to see your trends.").foregroundStyle(.secondary)
@@ -302,6 +642,7 @@ struct AnalyticsView: View {
             }
             .padding()
         }
+        .scrollContentBackground(.hidden)
     }
 }
 
@@ -322,9 +663,13 @@ final class AchievementsModel: ObservableObject {
 }
 
 struct AchievementsView: View {
+    @Environment(\.colorScheme) var colorScheme
+    @Environment(\.accentHex) var accentHex
     @StateObject private var model = AchievementsModel()
     private let columns = [GridItem(.flexible()), GridItem(.flexible())]
     var body: some View {
+        let unlockColor = HydroColors.from(colorScheme, accentHex: accentHex).primary
+        
         ScrollView {
             VStack(alignment: .leading) {
                 Text("\(model.state.unlockedCount) of \(model.state.achievements.count) unlocked")
@@ -333,18 +678,20 @@ struct AchievementsView: View {
                     ForEach(model.state.achievements, id: \.id) { a in
                         VStack(alignment: .leading, spacing: 6) {
                             Text(a.isUnlocked ? "🏆 \(a.title)" : "🔒 \(a.title)").bold()
+                                .foregroundStyle(a.isUnlocked ? unlockColor : .primary)
                             Text(a.description_).font(.caption)
                             if !a.isUnlocked { ProgressView(value: Double(a.progress)) }
                         }
                         .padding()
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background((a.isUnlocked ? Color.yellow : Color.gray).opacity(0.15))
-                        .cornerRadius(10)
+                        .background(a.isUnlocked ? unlockColor.opacity(0.08) : Color.primary.opacity(0.02))
+                        .glassCard(cornerRadius: 14, borderWidth: a.isUnlocked ? 1.5 : 1)
                     }
                 }
             }
             .padding()
         }
+        .scrollContentBackground(.hidden)
     }
 }
 
@@ -364,6 +711,64 @@ final class SettingsModel: ObservableObject {
     func saveProfile(weight: Double, age: Int32) { store.saveProfile(weightKg: weight, age: age) }
     func setEnabled(_ on: Bool) { store.setRemindersEnabled(enabled: on) }
     func setInterval(_ minutes: Int32) { store.setReminderInterval(minutes: minutes) }
+    
+    func updateThemeMode(_ mode: String) {
+        let s = state.reminderSettings
+        let newSettings = ReminderSettings(
+            enabled: s.enabled,
+            intervalMinutes: s.intervalMinutes,
+            wakeTime: s.wakeTime,
+            sleepTime: s.sleepTime,
+            strategy: s.strategy,
+            quietWindows: s.quietWindows,
+            skipIfRecentlyLoggedMinutes: s.skipIfRecentlyLoggedMinutes,
+            soundEnabled: s.soundEnabled,
+            vibrationEnabled: s.vibrationEnabled,
+            notificationSound: s.notificationSound,
+            themeMode: mode,
+            accentColor: s.accentColor
+        )
+        store.dispatch(intent: SettingsIntentUpdateReminders(settings: newSettings))
+    }
+    
+    func updateNotificationSound(_ sound: String) {
+        let s = state.reminderSettings
+        let newSettings = ReminderSettings(
+            enabled: s.enabled,
+            intervalMinutes: s.intervalMinutes,
+            wakeTime: s.wakeTime,
+            sleepTime: s.sleepTime,
+            strategy: s.strategy,
+            quietWindows: s.quietWindows,
+            skipIfRecentlyLoggedMinutes: s.skipIfRecentlyLoggedMinutes,
+            soundEnabled: s.soundEnabled,
+            vibrationEnabled: s.vibrationEnabled,
+            notificationSound: sound,
+            themeMode: s.themeMode,
+            accentColor: s.accentColor
+        )
+        store.dispatch(intent: SettingsIntentUpdateReminders(settings: newSettings))
+    }
+    
+    func updateAccentColor(_ hex: String) {
+        let s = state.reminderSettings
+        let newSettings = ReminderSettings(
+            enabled: s.enabled,
+            intervalMinutes: s.intervalMinutes,
+            wakeTime: s.wakeTime,
+            sleepTime: s.sleepTime,
+            strategy: s.strategy,
+            quietWindows: s.quietWindows,
+            skipIfRecentlyLoggedMinutes: s.skipIfRecentlyLoggedMinutes,
+            soundEnabled: s.soundEnabled,
+            vibrationEnabled: s.vibrationEnabled,
+            notificationSound: s.notificationSound,
+            themeMode: s.themeMode,
+            accentColor: hex
+        )
+        store.dispatch(intent: SettingsIntentUpdateReminders(settings: newSettings))
+    }
+
     deinit { token?.cancel(); store.close() }
 }
 
@@ -375,31 +780,166 @@ struct SettingsView: View {
     @State private var seeded = false
 
     var body: some View {
-        Form {
-            Section("Profile") {
-                TextField("Weight (kg)", text: $weight).keyboardType(.numberPad)
-                TextField("Age", text: $age).keyboardType(.numberPad)
-                Button("Save profile & recalculate goal") {
-                    if let w = Double(weight), let a = Int32(age) { model.saveProfile(weight: w, age: a) }
+        ScrollView {
+            VStack(spacing: 20) {
+                // Profile Section
+                VStack(alignment: .leading, spacing: 14) {
+                    Text("Profile").font(.headline).fontWeight(.bold)
+                    
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Weight (kg)").font(.caption).foregroundStyle(.secondary)
+                        TextField("Weight (kg)", text: $weight)
+                            .keyboardType(.numberPad)
+                            .textFieldStyle(.roundedBorder)
+                    }
+                    
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Age").font(.caption).foregroundStyle(.secondary)
+                        TextField("Age", text: $age)
+                            .keyboardType(.numberPad)
+                            .textFieldStyle(.roundedBorder)
+                    }
+                    
+                    Button("Save profile & recalculate goal") {
+                        if let w = Double(weight), let a = Int32(age) { model.saveProfile(weight: w, age: a) }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .frame(maxWidth: .infinity)
                 }
-            }
-            Section("Reminders") {
-                Toggle("Enabled", isOn: Binding(
-                    get: { model.state.reminderSettings.enabled },
-                    set: { model.setEnabled($0) }
-                ))
-                TextField("Interval (minutes)", text: $interval).keyboardType(.numberPad)
-                Button("Apply interval") {
-                    if let m = Int32(interval), m > 0 { model.setInterval(m) }
+                .padding()
+                .glassCard(cornerRadius: 20)
+
+                // Reminders Section
+                VStack(alignment: .leading, spacing: 14) {
+                    Text("Reminders").font(.headline).fontWeight(.bold)
+                    
+                    Toggle("Enabled", isOn: Binding(
+                        get: { model.state.reminderSettings.enabled },
+                        set: { model.setEnabled($0) }
+                    ))
+                    
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Interval (minutes)").font(.caption).foregroundStyle(.secondary)
+                        TextField("Interval (minutes)", text: $interval)
+                            .keyboardType(.numberPad)
+                            .textFieldStyle(.roundedBorder)
+                    }
+                    
+                    Button("Apply interval") {
+                        if let m = Int32(interval), m > 0 { model.setInterval(m) }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .frame(maxWidth: .infinity)
                 }
+                .padding()
+                .glassCard(cornerRadius: 20)
+
+                // Customization Section
+                VStack(alignment: .leading, spacing: 14) {
+                    Text("Customization").font(.headline).fontWeight(.bold)
+                    
+                    // 1. Theme Selection
+                    Text("Theme").font(.subheadline).foregroundStyle(.secondary)
+                    Picker("Theme Mode", selection: Binding(
+                        get: { model.state.reminderSettings.themeMode },
+                        set: { model.updateThemeMode($0) }
+                    )) {
+                        Text("System").tag("SYSTEM")
+                        Text("Light").tag("LIGHT")
+                        Text("Dark").tag("DARK")
+                    }
+                    .pickerStyle(.segmented)
+                    
+                    Divider()
+                    
+                    // 2. Notification Sound Selection
+                    Text("Notification Sound").font(.subheadline).foregroundStyle(.secondary)
+                    let sounds = ["default", "chime", "glass", "droplet", "ping"]
+                    ForEach(sounds, id: \.self) { sound in
+                        HStack {
+                            Text(sound.capitalized)
+                                .fontWeight(model.state.reminderSettings.notificationSound == sound ? .bold : .regular)
+                            Spacer()
+                            if model.state.reminderSettings.notificationSound == sound {
+                                Image(systemName: "checkmark").foregroundColor(.accentColor)
+                            }
+                            Button(action: {
+                                KoinHelper().playSoundPreview(soundName: sound)
+                            }) {
+                                Label("Preview", systemImage: "play.circle.fill")
+                            }
+                            .buttonStyle(.borderless)
+                        }
+                        .padding(.vertical, 4)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            model.updateNotificationSound(sound)
+                        }
+                    }
+                    
+                    Divider()
+                    
+                    // 3. Accent Color Picker
+                    Text("Accent Color").font(.subheadline).foregroundStyle(.secondary)
+                    
+                    let presets = [
+                        ("Ocean Blue", "#006690"),
+                        ("Teal Breeze", "#006A75"),
+                        ("Sunset Orange", "#E65100"),
+                        ("Emerald Green", "#1B5E20"),
+                        ("Purple Rain", "#6A1B9A")
+                    ]
+                    
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 12) {
+                            ForEach(presets, id: \.1) { name, hex in
+                                Button(action: {
+                                    model.updateAccentColor(hex)
+                                }) {
+                                    VStack {
+                                        Circle()
+                                            .fill(Color.fromHex(hex))
+                                            .frame(width: 32, height: 32)
+                                            .overlay(
+                                                Circle()
+                                                    .stroke(Color.primary, lineWidth: model.state.reminderSettings.accentColor.uppercased() == hex.uppercased() ? 2 : 0)
+                                            )
+                                        Text(name)
+                                            .font(.caption2)
+                                            .foregroundStyle(.primary)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Custom Hex Picker
+                    HStack {
+                        Text("Custom Hex:")
+                            .font(.caption)
+                        TextField("#6C5CE7", text: Binding(
+                            get: { model.state.reminderSettings.accentColor },
+                            set: { val in
+                                if val.count == 7 && val.hasPrefix("#") {
+                                    model.updateAccentColor(val)
+                                }
+                            }
+                        ))
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 120)
+                    }
+                }
+                .padding()
+                .glassCard(cornerRadius: 20)
             }
+            .padding()
         }
+        .scrollContentBackground(.hidden)
         .scrollDismissesKeyboard(.interactively)
         .onChange(of: model.state.isLoading) { _, loading in seedIfNeeded(loading: loading) }
         .onAppear { seedIfNeeded(loading: model.state.isLoading) }
     }
 
-    // Seed editable fields once when data has loaded, so reactive updates never reset typing.
     private func seedIfNeeded(loading: Bool) {
         guard !loading, !seeded else { return }
         weight = model.state.profile.map { String(Int($0.weightKg)) } ?? "70"
