@@ -114,22 +114,117 @@ extension Color {
 
 // MARK: - Core Custom UI Views
 
+// MARK: - Wave Fill Shape
+
+/// A Shape that draws a sine-wave water surface and fills downward.
+/// `phase` drives horizontal wave motion; `level` (0…1) sets the waterline height.
+private struct WaterWaveShape: Shape {
+    var phase: Double   // radians, advances over time
+    var level: Double   // 0 = empty (bottom), 1 = full (top)
+    var amplitude: Double = 6
+    var frequency: Double = 1.5
+
+    // Animate both properties so SwiftUI interpolates them.
+    var animatableData: AnimatablePair<Double, Double> {
+        get { AnimatablePair(phase, level) }
+        set { phase = newValue.first; level = newValue.second }
+    }
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let waterlineY = rect.height * (1 - level)
+        let stepCount = Int(rect.width) + 1
+
+        path.move(to: CGPoint(x: 0, y: waterlineY))
+        for x in 0...stepCount {
+            let relX = Double(x) / rect.width
+            let angle = relX * frequency * 2 * .pi + phase
+            let y = waterlineY + amplitude * sin(angle)
+            path.addLine(to: CGPoint(x: CGFloat(x), y: y))
+        }
+        // Close down to the bottom-right then bottom-left to form a filled region.
+        path.addLine(to: CGPoint(x: rect.width, y: rect.height))
+        path.addLine(to: CGPoint(x: 0, y: rect.height))
+        path.closeSubpath()
+        return path
+    }
+}
+
 /// Animated circular hydration ring — the SwiftUI counterpart of the Compose `WaterRing`.
 struct WaterRing: View {
     @Environment(\.colorScheme) var colorScheme
     @Environment(\.accentHex) var accentHex
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
     let progress: Double      // 0...1
     let consumedMl: Int32
     let goalMl: Int32
+
+    @State private var wavePhase: Double = 0
 
     private var clamped: Double { min(max(progress, 0), 1) }
 
     var body: some View {
         let colors = HydroColors.from(colorScheme, accentHex: accentHex)
 
+        // Inner circle diameter = ring diameter minus stroke width on each side.
+        let ringSize: CGFloat = 232
+        let strokeWidth: CGFloat = 24
+        let innerDiameter = ringSize - strokeWidth * 2
+
         ZStack {
+            // --- Wave fill layer (behind arc and text) ---
+            if reduceMotion {
+                // Static fill: no sine waves, just a flat rectangle clipped to the circle.
+                Circle()
+                    .frame(width: innerDiameter, height: innerDiameter)
+                    .hidden()  // size placeholder; actual fill below
+                ZStack {
+                    colors.secondary.opacity(0.55)
+                        .clipShape(
+                            // Flat rectangle representing the fill level
+                            Rectangle()
+                                .path(in: CGRect(
+                                    x: 0,
+                                    y: innerDiameter * CGFloat(1 - clamped),
+                                    width: innerDiameter,
+                                    height: innerDiameter * CGFloat(clamped)
+                                ))
+                        )
+                    colors.primary.opacity(0.45)
+                        .clipShape(
+                            Rectangle()
+                                .path(in: CGRect(
+                                    x: 0,
+                                    y: innerDiameter * CGFloat(1 - clamped),
+                                    width: innerDiameter,
+                                    height: innerDiameter * CGFloat(clamped)
+                                ))
+                        )
+                }
+                .frame(width: innerDiameter, height: innerDiameter)
+                .clipShape(Circle())
+                .animation(.easeInOut(duration: 0.9), value: clamped)
+            } else {
+                // Animated wave fill via TimelineView.
+                TimelineView(.animation) { timeline in
+                    let now = timeline.date.timeIntervalSinceReferenceDate
+                    // Back wave: secondary color, slightly offset phase
+                    WaterWaveShape(phase: now * 1.4 + .pi, level: clamped, amplitude: 7, frequency: 1.4)
+                        .fill(colors.secondary.opacity(0.55))
+                    // Front wave: primary color, leading phase
+                    WaterWaveShape(phase: now * 1.8, level: clamped, amplitude: 5, frequency: 1.7)
+                        .fill(colors.primary.opacity(0.45))
+                }
+                .frame(width: innerDiameter, height: innerDiameter)
+                .clipShape(Circle())
+                .animation(.easeInOut(duration: 0.9), value: clamped)
+            }
+
+            // --- Track circle (behind arc) ---
             Circle()
                 .stroke(colors.surfaceVariant, style: StrokeStyle(lineWidth: 24, lineCap: .round))
+
+            // --- Progress arc ---
             Circle()
                 .trim(from: 0, to: clamped)
                 .stroke(
@@ -142,6 +237,8 @@ struct WaterRing: View {
                     style: StrokeStyle(lineWidth: 24, lineCap: .round)
                 )
                 .rotationEffect(.degrees(-90))
+
+            // --- Center text (front) ---
             VStack(spacing: 4) {
                 Text("\(Int(clamped * 100))%")
                     .font(.system(size: 44, weight: .bold, design: .rounded))
