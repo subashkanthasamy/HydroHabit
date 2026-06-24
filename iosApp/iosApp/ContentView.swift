@@ -405,6 +405,12 @@ struct HomeView: View {
         }
         .scrollContentBackground(.hidden)
         .scrollDismissesKeyboard(.interactively)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                HydroLogo()
+                    .frame(width: 36, height: 36)
+            }
+        }
     }
 }
 
