@@ -1,29 +1,42 @@
 import SwiftUI
 import SharedLogic
 
+// MARK: - Accent hex environment key
+
+private struct AccentHexKey: EnvironmentKey {
+    static let defaultValue: String = "#6C5CE7"
+}
+
+extension EnvironmentValues {
+    var accentHex: String {
+        get { self[AccentHexKey.self] }
+        set { self[AccentHexKey.self] = newValue }
+    }
+}
+
 // MARK: - Glassmorphism Components & Helpers
 
 /// Screen-wide container that draws glowing ambient blobs in the background.
 struct GlassyBackground: View {
     @Environment(\.colorScheme) var colorScheme
-    
+    @Environment(\.accentHex) var accentHex
+
     var body: some View {
-        let isDark = colorScheme == .dark
-        let baseBg = isDark ? Color(red: 0.06, green: 0.09, blue: 0.16) : Color(red: 0.97, green: 0.98, blue: 0.99)
-        let glow1 = isDark ? Color.blue.opacity(0.12) : Color.cyan.opacity(0.2)
-        let glow2 = isDark ? Color.cyan.opacity(0.08) : Color.blue.opacity(0.15)
-        let glow3 = isDark ? Color.indigo.opacity(0.05) : Color.indigo.opacity(0.1)
+        let colors = HydroColors.from(colorScheme, accentHex: accentHex)
+        let glow1 = colors.primary.opacity(colorScheme == .dark ? 0.10 : 0.14)
+        let glow2 = colors.secondary.opacity(colorScheme == .dark ? 0.07 : 0.10)
+        let glow3 = colors.primary.opacity(colorScheme == .dark ? 0.04 : 0.07)
 
         ZStack {
-            baseBg.ignoresSafeArea()
-            
+            colors.background.ignoresSafeArea()
+
             // Glowing mesh circles
             Circle()
                 .fill(glow1)
                 .frame(width: 400, height: 400)
                 .blur(radius: 80)
                 .offset(x: 180, y: -250)
-            
+
             Circle()
                 .fill(glow2)
                 .frame(width: 350, height: 350)
@@ -42,18 +55,19 @@ struct GlassyBackground: View {
 /// Applies a semi-transparent, frosted glass filter with a glowing border overlay and drop shadow.
 struct GlassCardModifier: ViewModifier {
     @Environment(\.colorScheme) var colorScheme
-    
+    @Environment(\.accentHex) var accentHex
+
     var cornerRadius: CGFloat
     var borderWidth: CGFloat
-    
+
     func body(content: Content) -> some View {
         let isDark = colorScheme == .dark
-        let baseColor = isDark ? Color(red: 0.12, green: 0.16, blue: 0.23) : Color.white
+        let colors = HydroColors.from(colorScheme, accentHex: accentHex)
         let opacity = isDark ? 0.12 : 0.65
         content
             .background(
                 RoundedRectangle(cornerRadius: cornerRadius)
-                    .fill(baseColor.opacity(opacity))
+                    .fill(colors.surface.opacity(opacity))
             )
             .background(
                 RoundedRectangle(cornerRadius: cornerRadius)
@@ -84,15 +98,17 @@ extension View {
 }
 
 // MARK: - Brand Color Extensions & Helpers
+// These helpers are intentionally thin wrappers so call sites stay readable.
+// All color values are sourced from HydroColors; no hardcoded aqua/cyan/indigo.
 extension Color {
-    static func brandPrimary(isDark: Bool) -> Color {
-        isDark ? Color(red: 0.50, green: 0.82, blue: 0.91) : Color(red: 0.0, green: 0.40, blue: 0.56)
+    static func brandPrimary(scheme: ColorScheme, accentHex: String) -> Color {
+        HydroColors.from(scheme, accentHex: accentHex).primary
     }
-    static func brandSecondary(isDark: Bool) -> Color {
-        isDark ? Color(red: 0.31, green: 0.85, blue: 0.90) : Color(red: 0.0, green: 0.42, blue: 0.46)
+    static func brandSecondary(scheme: ColorScheme, accentHex: String) -> Color {
+        HydroColors.from(scheme, accentHex: accentHex).secondary
     }
-    static func brandOnSurfaceVariant(isDark: Bool) -> Color {
-        isDark ? Color(red: 0.80, green: 0.84, blue: 0.88) : Color(red: 0.25, green: 0.28, blue: 0.30)
+    static func brandOnSurfaceVariant(scheme: ColorScheme, accentHex: String) -> Color {
+        HydroColors.from(scheme, accentHex: accentHex).muted
     }
 }
 
@@ -101,6 +117,7 @@ extension Color {
 /// Animated circular hydration ring — the SwiftUI counterpart of the Compose `WaterRing`.
 struct WaterRing: View {
     @Environment(\.colorScheme) var colorScheme
+    @Environment(\.accentHex) var accentHex
     let progress: Double      // 0...1
     let consumedMl: Int32
     let goalMl: Int32
@@ -108,18 +125,16 @@ struct WaterRing: View {
     private var clamped: Double { min(max(progress, 0), 1) }
 
     var body: some View {
-        let isDark = colorScheme == .dark
-        let colorStart = Color.brandSecondary(isDark: isDark)
-        let colorEnd = Color.brandPrimary(isDark: isDark)
-        
+        let colors = HydroColors.from(colorScheme, accentHex: accentHex)
+
         ZStack {
             Circle()
-                .stroke(Color.primary.opacity(0.06), style: StrokeStyle(lineWidth: 24, lineCap: .round))
+                .stroke(colors.surfaceVariant, style: StrokeStyle(lineWidth: 24, lineCap: .round))
             Circle()
                 .trim(from: 0, to: clamped)
                 .stroke(
                     AngularGradient(
-                        gradient: Gradient(colors: [colorStart, colorEnd, colorStart]),
+                        gradient: Gradient(colors: [colors.secondary, colors.primary, colors.secondary]),
                         center: .center,
                         startAngle: .degrees(-90),
                         endAngle: .degrees(270)
@@ -130,7 +145,7 @@ struct WaterRing: View {
             VStack(spacing: 4) {
                 Text("\(Int(clamped * 100))%")
                     .font(.system(size: 44, weight: .bold, design: .rounded))
-                    .foregroundStyle(Color.brandPrimary(isDark: isDark))
+                    .foregroundStyle(colors.primary)
                     .contentTransition(.numericText())
                 Text("\(consumedMl) / \(goalMl) ml")
                     .font(.subheadline)
@@ -231,7 +246,7 @@ struct RootView: View {
                 }
             }
             .tabItem { Label("Home", systemImage: "drop.fill") }
-            
+
             NavigationStack {
                 ZStack {
                     GlassyBackground()
@@ -239,7 +254,7 @@ struct RootView: View {
                 }
             }
             .tabItem { Label("History", systemImage: "list.bullet") }
-            
+
             NavigationStack {
                 ZStack {
                     GlassyBackground()
@@ -247,7 +262,7 @@ struct RootView: View {
                 }
             }
             .tabItem { Label("Stats", systemImage: "chart.bar.fill") }
-            
+
             NavigationStack {
                 ZStack {
                     GlassyBackground()
@@ -255,7 +270,7 @@ struct RootView: View {
                 }
             }
             .tabItem { Label("Awards", systemImage: "trophy.fill") }
-            
+
             NavigationStack {
                 ZStack {
                     GlassyBackground()
@@ -264,6 +279,7 @@ struct RootView: View {
             }
             .tabItem { Label("Settings", systemImage: "gearshape.fill") }
         }
+        .environment(\.accentHex, rootModel.settings.accentColor.isEmpty ? "#6C5CE7" : rootModel.settings.accentColor)
         .preferredColorScheme(preferredScheme)
         .tint(brandColor)
     }
@@ -475,6 +491,8 @@ final class AnalyticsModel: ObservableObject {
 }
 
 struct AnalyticsView: View {
+    @Environment(\.colorScheme) var colorScheme
+    @Environment(\.accentHex) var accentHex
     @StateObject private var model = AnalyticsModel()
     var body: some View {
         ScrollView {
@@ -499,6 +517,7 @@ struct AnalyticsView: View {
                     .glassCard(cornerRadius: 16)
 
                     // Daily breakdown bar chart
+                    let analyticsColors = HydroColors.from(colorScheme, accentHex: accentHex)
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Daily breakdown").font(.headline).fontWeight(.bold)
                         ForEach(report.dailyBreakdown, id: \.date.description) { day in
@@ -510,7 +529,11 @@ struct AnalyticsView: View {
                                     let fraction = maxVal > 0 ? CGFloat(day.consumedMl) / maxVal : 0
                                     RoundedRectangle(cornerRadius: 4)
                                         .fill(
-                                            LinearGradient(colors: [.cyan, .blue], startPoint: .leading, endPoint: .trailing)
+                                            LinearGradient(
+                                                colors: [analyticsColors.secondary, analyticsColors.primary],
+                                                startPoint: .leading,
+                                                endPoint: .trailing
+                                            )
                                         )
                                         .frame(width: geo.size.width * fraction)
                                 }
@@ -555,11 +578,11 @@ final class AchievementsModel: ObservableObject {
 
 struct AchievementsView: View {
     @Environment(\.colorScheme) var colorScheme
+    @Environment(\.accentHex) var accentHex
     @StateObject private var model = AchievementsModel()
     private let columns = [GridItem(.flexible()), GridItem(.flexible())]
     var body: some View {
-        let isDark = colorScheme == .dark
-        let unlockColor = isDark ? Color(red: 0.98, green: 0.82, blue: 0.20) : Color(red: 0.72, green: 0.47, blue: 0.0) // high contrast gold/amber in light mode
+        let unlockColor = HydroColors.from(colorScheme, accentHex: accentHex).primary
         
         ScrollView {
             VStack(alignment: .leading) {
@@ -752,7 +775,7 @@ struct SettingsView: View {
                                 .fontWeight(model.state.reminderSettings.notificationSound == sound ? .bold : .regular)
                             Spacer()
                             if model.state.reminderSettings.notificationSound == sound {
-                                Image(systemName: "checkmark").foregroundColor(.blue)
+                                Image(systemName: "checkmark").foregroundColor(.accentColor)
                             }
                             Button(action: {
                                 KoinHelper().playSoundPreview(soundName: sound)
