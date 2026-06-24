@@ -808,7 +808,7 @@ struct SettingsView: View {
                     HStack {
                         Text("Custom Hex:")
                             .font(.caption)
-                        TextField("#006690", text: Binding(
+                        TextField("#6C5CE7", text: Binding(
                             get: { model.state.reminderSettings.accentColor },
                             set: { val in
                                 if val.count == 7 && val.hasPrefix("#") {

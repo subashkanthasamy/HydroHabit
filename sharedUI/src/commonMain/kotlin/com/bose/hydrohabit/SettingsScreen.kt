@@ -354,7 +354,7 @@ fun SettingsScreen(
                             onUpdateReminders(state.reminderSettings.copy(accentColor = filtered))
                         }
                     },
-                    label = { Text("Custom Color Hex (e.g. #006690)") },
+                    label = { Text("Custom Color Hex (e.g. #6C5CE7)") },
                     singleLine = true,
                     isError = hexError,
                     supportingText = if (hexError) {

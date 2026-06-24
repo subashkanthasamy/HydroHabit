@@ -11,7 +11,7 @@ CREATE TABLE ReminderSettingsEntity (
     vibrationEnabled INTEGER NOT NULL,
     notificationSound TEXT NOT NULL DEFAULT 'default',
     themeMode TEXT NOT NULL DEFAULT 'SYSTEM',
-    accentColor TEXT NOT NULL DEFAULT '#006690'
+    accentColor TEXT NOT NULL DEFAULT '#6C5CE7'
 );
 
 selectSettings:

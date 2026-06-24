@@ -21,7 +21,7 @@ data class ReminderSettings(
     val vibrationEnabled: Boolean = true,
     val notificationSound: String = "default",
     val themeMode: String = "SYSTEM",
-    val accentColor: String = "#006690",
+    val accentColor: String = "#6C5CE7",
 ) {
     companion object {
         /** Sensible defaults used until the user has a profile / saved settings. */
